@@ -3,92 +3,34 @@ import torchvision.models as models
 from torchvision import datasets, transforms as T
 from PIL import Image
 import numpy as np
-import struct
+import dtype_conversions
+from dtype_conversions import float_to_bin
+from dtype_conversions import bin_to_float
+from class_labels import print_top_5
+import bit_flipping
 
-# Read in the labels from 'imagenet_classes.txt'
-labels = []
-with open('imagenet_classes.txt') as f:
-    for line in f:
-        line = line.split(',')
-        class_name = line[1].strip()    # Name of class, line[0] contains line number
-        labels.append(class_name)
-
-
-# Define function for printing out the results
-def print_top_5(output):
-    images_per_batch, num_classes = output.shape
-    percentages = torch.nn.functional.softmax(output, dim=1) * 100
-    _, indices = torch.sort(output, descending=True)
-
-    for image in range(images_per_batch):
-        for i in range(5):
-            idx = indices[image][i]     # Index of top class
-            print(i+1, ": ", labels[idx], " ", percentages[image][idx].item())
-        print()     # Newline
+#################################################################################################
+#       This file is Hunter's sandbox, see file run_pytorch.py for more readable code           #
+#################################################################################################
 
 
-# From: https://stackoverflow.com/questions/23624212/how-to-convert-a-float-into-hex
-# Converts a float type to a string
-def float_to_hex(fl):
-    return hex(struct.unpack('<I', struct.pack('<f', fl))[0])[2:]   # The [2:] removes the 0x prefix
-
-
-# Convert hex string back to float type
-def hex_to_float(hx):
-    return struct.unpack('!f', bytes.fromhex(hx))[0]
-
-
-# Convert hex string to binary string
-def hex_to_bin(hx):
-    return bin(int(hx, 16))[2:]     # [2:] removes 0b prefix
-
-
-# Convert binary string to hex string
-def bin_to_hex(bn):
-    return hex(int(bn, 2))[2:]      # [2:] removes 0x prefix
-
-
-# Uses the functions defined above to turn a float value into a binary string
-def float_to_bin(fl):
-    return hex_to_bin(float_to_hex(fl))
-
-
-# Uses functions from above to convert a binary string into a float value
-def bin_to_float(bn):
-    return hex_to_float(bin_to_hex(bn))
-
-
-# Verifies the functionality of the 6 functions above
-def test_float_hex_bin(flt):
-    print("Original float value: ", flt, "\t", type(flt))
-    hex_fl = float_to_hex(flt)
-    print("Converted to hex: ", hex_fl, "\t", type(hex_fl))
-    bin_fl = hex_to_bin(hex_fl)
-    print("Converted to bin: ", bin_fl, "\t", type(bin_fl))
-    hex_fl2 = bin_to_hex(bin_fl)
-    print("Converted back to hex: ", hex_fl2, "\t", type(hex_fl2))
-    fl2 = hex_to_float(hex_fl2)
-    print("And finally back in float: ", fl2, "\t", type(fl2))
-    fl3 = bin_to_float(float_to_bin(flt))
-    print("Verifying they all work together, your float is still: ", fl3)
-
-
-normalize = T.Normalize(mean=[0.485, 0.456, 0.406],
-                         std=[0.229, 0.224, 0.225])
-
+# Define the transform for all of our images - resizes/crops them to 256x256, normalizes (required for ImageNet)
 transform = T.Compose([
     T.Resize(256),
     T.CenterCrop(256),
     T.ToTensor(),
-    normalize
+    T.Normalize(mean=[0.485, 0.456, 0.406],
+                std=[0.229, 0.224, 0.225])
 ])
 
-# image_net = datasets.ImageNet()
+# image_net = datasets.ImageNet()   # TODO: Figure out how to use datasets?
 
+# Instantiate the model
 mobilenet = models.mobilenet_v3_small(pretrained=True)
-mobilenet.eval()
-# print(mobilenet)  # Prints architecture
+mobilenet.eval()    # Put the model in inference mode
+# print(mobilenet)  # Prints architecture (num layers, etc.)
 
+# Load two images, prepare in a batch
 img1 = Image.open("ILSVRC2017_test_00000004.JPEG")
 img2 = Image.open("ILSVRC2017_test_00000017.JPEG")
 img1_t = transform(img1)
@@ -97,12 +39,19 @@ img2_t = transform(img2)
 batch_t = torch.stack((img1_t, img2_t), dim=0)  # Batch 2 images together
 print("batch shape: ", batch_t.shape)
 
+# Run the network
 out = mobilenet(batch_t)    # out has shape [N, 1000] where N = batch size
-print_top_5(out)
+print_top_5(out)            # Print out the predictions
 
-float_test = mobilenet.classifier[3].bias[1].item()
-test_float_hex_bin(float_test)
+# Test out our dtype conversion functions:
+# float_test = mobilenet.classifier[3].bias[1].item()
+# dtype_conversions.test_float_hex_bin(float_test)
 
+bit_flipping.bit_flip_init(mobilenet)
+
+print(mobilenet.classifier[3].bias[1].item())
+print(mobilenet.features[11].block[3][1].weight[95].item())
+# print(mobilenet.state_dict())   # Does same thing as named_parameters()
 
 # param_count = 0
 # param_copy = None

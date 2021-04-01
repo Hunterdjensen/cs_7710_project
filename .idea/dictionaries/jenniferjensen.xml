@@ -1,8 +1,12 @@
 <component name="ProjectDictionaryState">
   <dictionary name="jenniferjensen">
     <words>
+      <w>imagenet</w>
       <w>mobilenet</w>
+      <w>pytorch</w>
+      <w>resizes</w>
       <w>squeezenet</w>
+      <w>unsqueeze</w>
     </words>
   </dictionary>
 </component>
