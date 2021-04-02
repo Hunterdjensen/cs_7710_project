@@ -3,6 +3,7 @@
     <words>
       <w>imagenet</w>
       <w>mobilenet</w>
+      <w>modelname</w>
       <w>pytorch</w>
       <w>resizes</w>
       <w>squeezenet</w>

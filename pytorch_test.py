@@ -48,10 +48,49 @@ print_top_5(out)            # Print out the predictions
 # dtype_conversions.test_float_hex_bin(float_test)
 
 bit_flipping.bit_flip_init(mobilenet)
+bit_flipping.flip_n_bits(1, mobilenet)
 
-print(mobilenet.classifier[3].bias[1].item())
-print(mobilenet.features[11].block[3][1].weight[95].item())
+# print(mobilenet.classifier[3].bias[1].item())
+# print(mobilenet.features[11].block[3][1].weight[95].item())
+# print(getattr(mobilenet, 'features')[11].block[3][1].weight[95].item())
+# print(getattr(mobilenet.features[11], 'block')[3][1].weight[95].item())
+# print(getattr(mobilenet.features[11].block[3][1], 'weight')[95].item())
+# print(getattr(getattr(getattr(mobilenet, 'features')[11], 'block')[3][1], 'weight')[95].item())
+# l1 = getattr(mobilenet, 'features')
+# l1 = l1[11]
+# l2 = getattr(l1, 'block')
+# l2 = l2[3][1]
+# l3 = getattr(l2, 'weight')[95]
+# print(l3.item())
 # print(mobilenet.state_dict())   # Does same thing as named_parameters()
+
+# EXEC test
+# test_val = None
+# str_test = "test_val = 'Halo Worl'"
+# exec(str_test)
+# print("test_val is: ", test_val)
+
+# Test with torch views and indexing:
+# tnsr = torch.tensor([[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11]])
+# print(tnsr)
+# num_elements = torch.numel(tnsr)
+# print(num_elements)
+# view = tnsr.view(num_elements)
+# print(view)
+# view[3] = 999
+# print(view)
+# print(tnsr)
+
+# keys = []
+# for name, value in mobilenet.named_parameters():
+#     keys.append(name)
+#
+# with torch.no_grad():
+#     print("**")
+#     print(keys[-1])
+#     print("***")
+#     lookup = keys[-1].split('.')
+#     print(getattr(mobilenet, lookup[0])[int(lookup[1])].bias[1])
 
 # param_count = 0
 # param_copy = None
@@ -77,7 +116,9 @@ print(mobilenet.features[11].block[3][1].weight[95].item())
 # #     print(name, " ", param.shape)
 #
 # # print(param_copy.shape)
-# mobilenet.classifier[3].bias = torch.nn.Parameter(param_copy)
+# # mobilenet.classifier[3].bias = torch.nn.Parameter(param_copy)
+# # with torch.no_grad():
+# # getattr(mobilenet, keys[-1].split('.')[0])[3].bias = torch.nn.Parameter(param_copy)
 #
 # print("***")
 # for param in mobilenet.parameters():
