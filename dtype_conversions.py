@@ -18,12 +18,14 @@ def hex_to_float(hx):
 
 # Convert hex string to binary string
 def hex_to_bin(hx):
-    return bin(int(hx, 16))[2:]  # [2:] removes 0b prefix
+    length = len(hx) * 4    # So that we can add leading 0's if needed
+    return bin(int(hx, 16))[2:].zfill(length)  # [2:] removes 0b prefix
 
 
 # Convert binary string to hex string
 def bin_to_hex(bn):
-    return hex(int(bn, 2))[2:]  # [2:] removes 0x prefix
+    length = int(len(bn) / 4)    # Also for leading 0's (case where binary starts with 0000...)
+    return hex(int(bn, 2))[2:].zfill(length)  # [2:] removes 0x prefix
 
 
 # Uses the functions defined above to turn a float value into a binary string

@@ -1,2 +1,4 @@
 # Project exclude paths
 /venv/
+ILSVRC2017_test_00000004.JPEG
+ILSVRC2017_test_00000017.JPEG

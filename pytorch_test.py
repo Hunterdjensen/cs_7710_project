@@ -48,7 +48,21 @@ print_top_5(out)            # Print out the predictions
 # dtype_conversions.test_float_hex_bin(float_test)
 
 bit_flipping.bit_flip_init(mobilenet)
-bit_flipping.flip_n_bits(1, mobilenet)
+mobilenet = bit_flipping.flip_n_bits(200, mobilenet)
+
+# Before:  01000000100000100011001110101110 4.068808555603027 toggle the 2th bit
+# Traceback (most recent call last):
+#   File "/Users/jenniferjensen/PycharmProjects/pytorch_eval_tests/pytorch_test.py", line 51, in <module>
+#     bit_flipping.flip_n_bits(5, mobilenet, print_out=True)
+#   File "/Users/jenniferjensen/PycharmProjects/pytorch_eval_tests/bit_flipping.py", line 50, in flip_n_bits
+#     write_tensor(layer_tensor, rand_param, print_out=print_out)
+#   File "/Users/jenniferjensen/PycharmProjects/pytorch_eval_tests/bit_flipping.py", line 85, in write_tensor
+#     view[k] = bin_to_float(binary)
+#   File "/Users/jenniferjensen/PycharmProjects/pytorch_eval_tests/dtype_conversions.py", line 37, in bin_to_float
+#     return hex_to_float(bin_to_hex(bn))
+#   File "/Users/jenniferjensen/PycharmProjects/pytorch_eval_tests/dtype_conversions.py", line 16, in hex_to_float
+#     return struct.unpack('!f', bytes.fromhex(hx))[0]
+# struct.error: unpack requires a buffer of 4 bytes
 
 # print(mobilenet.classifier[3].bias[1].item())
 # print(mobilenet.features[11].block[3][1].weight[95].item())

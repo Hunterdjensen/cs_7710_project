@@ -1,9 +1,8 @@
 import torch
 import numpy as np
-import re
-import dtype_conversions
 from dtype_conversions import float_to_bin
 from dtype_conversions import bin_to_float
+import copy
 
 #################################################################################################
 #               Takes in models and randomly flips bits in their parameters                     #
@@ -29,19 +28,44 @@ def bit_flip_init(model):
         total_param_count += num_elements
         cumulative_param_count.append(total_param_count)
         names.append(name)
-        # print(name, list(param.shape), cumulative_param_count[-1])
-    print("Total params: ", total_param_count)
-    # print("Total layers: ", len(names))
-    # print(cumulative_param_count)
-    # print("Digitize: ", np.digitize(444, cumulative_param_count))
 
 
-# Get the tensor corresponding to the layer given by the 'name' parameter.
-# For example, the layer 'features.11.block.2.fc1.weight' contains the weight
-# parameters for this layer of the network, a tensor of shape torch.Size([144, 576, 1, 1])
+# Return the total number of parameters
+def get_num_params(model):
+    global init_flag, total_param_count
+    if init_flag is False:
+        bit_flip_init(model)
+
+    return total_param_count
+
+
+# Flips n bits randomly inside the model - main function to call from this file
+def flip_n_bits(n, model, print_out=False):
+    global init_flag, total_param_count, cumulative_param_count, names
+    if init_flag is False:
+        bit_flip_init(model)
+
+    model_corrupted = copy.deepcopy(model)      # Make a copy of the network to corrupt
+
+    # Then pick n random numbers which will correspond to which parameters to corrupt
+    random_param_numbers = np.random.randint(low=0, high=total_param_count, size=(n,))
+
+    # For each of those random parameters, get a reference to the layer the parameter belongs
+    # to, grab its tensor, and then corrupt the parameter inside that tensor by flipping 1 bit
+    for rand_param in random_param_numbers:
+        layer_num = np.digitize(rand_param, cumulative_param_count)
+        if print_out is True:
+            print("Flipping a bit in parameter #%d in layer %d (%s)" % (rand_param, layer_num, names[layer_num]))
+        layer_tensor = get_layer_tensor(names[layer_num], model_corrupted)
+        corrupt_parameter(layer_tensor, k=rand_param, print_out=print_out)
+    return model_corrupted
+
+
+# Get the tensor corresponding to the layer given by the 'name' argument.
+# For example, the layer 'features.11.block.2.fc1.weight' contains the weight parameters
+# for a layer of this network, which is a tensor of shape torch.Size([144, 576, 1, 1])
 def get_layer_tensor(name, model):
     tensor = model
-    print(name)
     split = name.split('.')  # 'features.11.block.2.fc1.weight' -> ['features', '11', 'block', '2', 'fc1', 'weight']
     for attribute in split:
         if attribute.isnumeric():   # Attribute is a number
@@ -51,30 +75,55 @@ def get_layer_tensor(name, model):
     return tensor
 
 
-# Writes to the kth value of a layer_tensor.  It does this by creating a 1-D view
-# of the tensor and indexing into its kth member to write to it.
-def write_tensor(layer_tensor, k, test_write_value=None):
+# Modifies the kth value of a layer_tensor.  It does this by creating a 1-D view
+# of the tensor and indexing into its kth member to write to it, and flips one of
+# its bits at random.
+def corrupt_parameter(layer_tensor, k, print_out=False, test_write_value=None, ):
     num_elements = torch.numel(layer_tensor)
     view = layer_tensor.view(num_elements)  # Create a 1D view
-    k = k % num_elements    # Use modulus in case n > num_elements
-    with torch.no_grad():
-        if test_write_value is not None:
+    k = k % num_elements    # Use modulus in case k > num_elements
+    with torch.no_grad():   # Use no_grad so PyTorch doesn't try to do back-prop on this
+        if test_write_value is not None:    # For testing purposes only
             view[k] = test_write_value
-        else:
-            view[k] = view[k] + 4
+        else:   # Normal operation:
+            binary = float_to_bin(view[k].item())               # Convert the desired parameter into binary
+            bit_to_flip = np.random.randint(0, len(binary))     # Choose which of its bit to flip
+            if print_out is True:
+                print("**********")
+                print("Before: ", binary, view[k].item(), "toggle the %dth bit" % (bit_to_flip+1))
+
+            binary = binary[:bit_to_flip] + toggle_bit(binary[bit_to_flip]) + binary[bit_to_flip+1:]
+            view[k] = bin_to_float(binary)                      # Put the corrupted data into the tensor
+            if print_out is True:
+                print("After:  ", binary, view[k].item())
+                print("**********")
 
 
-# Flips n bits randomly inside the model
-def flip_n_bits(n, model, ):
-    global init_flag, total_param_count, cumulative_param_count, names
-    if init_flag is False:
-        bit_flip_init(model)
+def toggle_bit(b):
+    if b == '1':
+        return '0'
+    else:
+        return '1'
 
-    random_param_numbers = np.random.randint(low=0, high=total_param_count, size=(n,))
-    print(random_param_numbers)
-    for rand_param in random_param_numbers:
-        layer_num = np.digitize(rand_param, cumulative_param_count)
-        print("Flipping a bit in parameter #%d in layer %d" % (rand_param, layer_num))
-        layer_tensor = get_layer_tensor(names[layer_num], model)
-        print("shape: ", layer_tensor.shape)
-        write_tensor(layer_tensor, rand_param)
+
+# Verifies the functionality of corrupt_parameter() to find and replace the kth element
+def test_write_tensor():
+    dummy_tensor = torch.tensor([[[[1.0, 1.1], [1.2, 1.3]], [[2.0, 2.1], [2.2, 2.3]], [[3.0, 3.1], [3.2, 3.3]]]])
+    print("Tensor shape: ", dummy_tensor.shape)
+    print("Tensor before: \n", dummy_tensor)
+    corrupt_parameter(dummy_tensor, 0, test_write_value=0)
+    corrupt_parameter(dummy_tensor, 1, test_write_value=1)
+    corrupt_parameter(dummy_tensor, 2, test_write_value=2)
+    corrupt_parameter(dummy_tensor, 3, test_write_value=3)
+    corrupt_parameter(dummy_tensor, 4, test_write_value=4)
+    corrupt_parameter(dummy_tensor, 5, test_write_value=5)
+    corrupt_parameter(dummy_tensor, 6, test_write_value=6)
+    corrupt_parameter(dummy_tensor, 7, test_write_value=7)
+    corrupt_parameter(dummy_tensor, 8, test_write_value=8)
+    corrupt_parameter(dummy_tensor, 9, test_write_value=9)
+    corrupt_parameter(dummy_tensor, 10, test_write_value=10)
+    corrupt_parameter(dummy_tensor, 11, test_write_value=11)
+    # write_tensor(dummy_tensor, 12, test_write_value=12)
+    print("Tensor after: \n", dummy_tensor)
+    print("Note how each of the 12 individual elements have been individually replaced.")
+    print("If you uncomment the line to write spot 12, you'll see it overwrites spot 0.")
