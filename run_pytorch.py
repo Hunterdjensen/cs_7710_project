@@ -42,7 +42,7 @@ for epoch in range(num_epochs):
         batch_t[i,:,:,:] = img_t
 
     # Run the network
-    out = net(batch_t)    # out has shape [N, 1000] where N = batch size\
+    out = net(batch_t)    # out has shape [N, 1000] where N = batch size
     num_correct = get_num_correct(out, gt_labels)
     total_correct += num_correct
     print("Epoch %d:  %d / %d" % (epoch, num_correct, batch_size))

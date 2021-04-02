@@ -48,7 +48,7 @@ print_top_5(out)            # Print out the predictions
 # dtype_conversions.test_float_hex_bin(float_test)
 
 bit_flipping.bit_flip_init(mobilenet)
-bit_flipping.flip_n_bits(40, mobilenet)
+bit_flipping.flip_n_bits(1, mobilenet)
 
 # print(mobilenet.classifier[3].bias[1].item())
 # print(mobilenet.features[11].block[3][1].weight[95].item())

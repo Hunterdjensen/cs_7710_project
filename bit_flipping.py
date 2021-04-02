@@ -51,9 +51,8 @@ def get_layer_tensor(name, model):
     return tensor
 
 
-# Writes to the kth value of a layer_tensor.  For example, if n=1 and the layer
-# tensor has shape [4,4,4,4] then [0,0,0,1] would be written to, but if n=5 then
-# the location [0,0,2,0] would be written to.
+# Writes to the kth value of a layer_tensor.  It does this by creating a 1-D view
+# of the tensor and indexing into its kth member to write to it.
 def write_tensor(layer_tensor, k, test_write_value=None):
     num_elements = torch.numel(layer_tensor)
     view = layer_tensor.view(num_elements)  # Create a 1D view
