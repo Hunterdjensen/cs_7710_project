@@ -10,82 +10,72 @@ from dtype_conversions import bin_to_float
 #################################################################################################
 
 init_flag = False
-total_param_count = 0
-cumulative_param_count = None  # List of the param counts per layer, to use w/ Numpy.digitize()
-names = None  # List of layer "names"
-sizes = None  # List of sizes for each layer
+total_param_count = 0           # Total number of parameters in the network
+cumulative_param_count = None   # List of the param counts per layer, to use w/ Numpy.digitize()
+names = None                    # List of layer "names" (i.e: 'features.12.block.2.fc1.weight')
 
 
-# Analyzes the model to get the number of parameters total and per layer
-# Pass in the model and the variable name of the model as a string (aka 'mobilenet')
+# Analyzes the model (i.e mobilenet) to get the number of parameters total and per layer
+# Doesn't need to be called by user, flip_n_bits() will call it
 def bit_flip_init(model):
-    global init_flag, total_param_count, cumulative_param_count, names, sizes
+    global init_flag, total_param_count, cumulative_param_count, names
     init_flag = True
     total_param_count = 0
     cumulative_param_count = []
     names = []
-    sizes = []
 
     for name, param in model.named_parameters():
         num_elements = torch.numel(param)
         total_param_count += num_elements
-
         cumulative_param_count.append(total_param_count)
         names.append(name)
-        sizes.append(list(param.shape))
-
-        print(name, list(param.shape), cumulative_param_count[-1])
+        # print(name, list(param.shape), cumulative_param_count[-1])
     print("Total params: ", total_param_count)
-    print("Total layers: ", len(names))
+    # print("Total layers: ", len(names))
     # print(cumulative_param_count)
     # print("Digitize: ", np.digitize(444, cumulative_param_count))
 
 
-# FIXME: Sizes not needed now?
-def get_tensor(name, model):
-    print("Getting string for name: ", name)    # features.6.block.3.0.weight
-    # split = name.split('.')     # Since names looks like: "classifier.3.bias"
-    # out_str = 'layer_tensor = getattr(' + model_name + ', ' + split[0] + ')'
-    # out_str = 'layer_tensor = ' + model_name + '.'
-    # print("Model is called: ", model_name)
-    # Do regex stuff:
-    # search = re.findall('([a-zA-Z]+[.\d+]*)', name) # Split up into groups of names+numbers
-    # num_groups = len(search)   # ['features.6.', 'block.3.0.', 'weight']
-    # attr = model
-    # for match in search:
-    #     split = match.split('.')
-    #     attr = getattr(attr, split)
+# Get the tensor corresponding to the layer given by the 'name' parameter.
+# For example, the layer 'features.11.block.2.fc1.weight' contains the weight
+# parameters for this layer of the network, a tensor of shape torch.Size([144, 576, 1, 1])
+def get_layer_tensor(name, model):
     tensor = model
-    split = name.split('.')
-    print(split)
+    print(name)
+    split = name.split('.')  # 'features.11.block.2.fc1.weight' -> ['features', '11', 'block', '2', 'fc1', 'weight']
     for attribute in split:
         if attribute.isnumeric():   # Attribute is a number
-            model = model[int(attribute)]
-        else:   # Attribute is a word
-            model = getattr(model, attribute)
-    return model
+            tensor = tensor[int(attribute)]
+        else:                       # Attribute is a word
+            tensor = getattr(tensor, attribute)
+    return tensor
+
+
+# Writes to the kth value of a layer_tensor.  For example, if n=1 and the layer
+# tensor has shape [4,4,4,4] then [0,0,0,1] would be written to, but if n=5 then
+# the location [0,0,2,0] would be written to.
+def write_tensor(layer_tensor, k, test_write_value=None):
+    num_elements = torch.numel(layer_tensor)
+    view = layer_tensor.view(num_elements)  # Create a 1D view
+    k = k % num_elements    # Use modulus in case n > num_elements
+    with torch.no_grad():
+        if test_write_value is not None:
+            view[k] = test_write_value
+        else:
+            view[k] = view[k] + 4
 
 
 # Flips n bits randomly inside the model
 def flip_n_bits(n, model, ):
-    global init_flag, total_param_count, cumulative_param_count, names, sizes
+    global init_flag, total_param_count, cumulative_param_count, names
     if init_flag is False:
-        bit_flip_init(model)    # FIXME - remove model_name
-        # exit("Please call bit_flipping.bit_flip_init() before flip_n_bits()")
+        bit_flip_init(model)
 
     random_param_numbers = np.random.randint(low=0, high=total_param_count, size=(n,))
     print(random_param_numbers)
     for rand_param in random_param_numbers:
         layer_num = np.digitize(rand_param, cumulative_param_count)
         print("Flipping a bit in parameter #%d in layer %d" % (rand_param, layer_num))
-        param = get_tensor(names[layer_num], model)
-        print("shape: ", param.shape)
-        # with torch.no_grad():
-        #     layer_name, idx, layer_type = names[layer_num].split('.')     # Since names looks like: "classifier.3.bias"
-        #     if layer_type == 'weight':
-        #         # value = getattr(model, layer_name)[int(idx)].weight[]
-        #         pass
-        #     elif layer_type == 'bias':
-        #         pass
-        #     else:
-        #         exit("Error in bit_flipping.flip_n_bits(), unknown layer type: ", layer_type)
+        layer_tensor = get_layer_tensor(names[layer_num], model)
+        print("shape: ", layer_tensor.shape)
+        write_tensor(layer_tensor, rand_param)

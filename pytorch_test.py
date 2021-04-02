@@ -48,7 +48,7 @@ print_top_5(out)            # Print out the predictions
 # dtype_conversions.test_float_hex_bin(float_test)
 
 bit_flipping.bit_flip_init(mobilenet)
-bit_flipping.flip_n_bits(1, mobilenet)
+bit_flipping.flip_n_bits(40, mobilenet)
 
 # print(mobilenet.classifier[3].bias[1].item())
 # print(mobilenet.features[11].block[3][1].weight[95].item())
@@ -120,13 +120,18 @@ bit_flipping.flip_n_bits(1, mobilenet)
 # # with torch.no_grad():
 # # getattr(mobilenet, keys[-1].split('.')[0])[3].bias = torch.nn.Parameter(param_copy)
 #
-# print("***")
-# for param in mobilenet.parameters():
-#     numel = torch.numel(param)
-#     if param.size() == torch.Size([1000]):
-#         print("Weight is now: ", param[1])
+# with torch.no_grad():
+#     tensor = bit_flipping.get_layer_tensor('classifier.3.bias', mobilenet)
+#     bit_flipping.write_tensor(tensor, 1)
+#     # tensor[1] = 44.44     # Equivalent to the line above
+
+print("***")
+for param in mobilenet.parameters():
+    numel = torch.numel(param)
+    if param.size() == torch.Size([1000]):
+        print("Weight is now: ", param[1])
 # print(mobilenet.parameters())
-#
-# print("\nNew results:")
-# out = mobilenet(batch_t)
-# print_top_5(out)
+
+print("\nNew results:")
+out = mobilenet(batch_t)
+print_top_5(out)
