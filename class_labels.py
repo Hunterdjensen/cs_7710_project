@@ -46,7 +46,6 @@ def get_label(file):
 # Compare predictions to correct labels, and return the number correct
 def get_num_correct(output, correct_labels):
     images_per_batch, num_classes = output.shape
-    percentages = torch.nn.functional.softmax(output, dim=1) * 100
     _, indices = torch.sort(output, descending=True)
     num_correct = 0
 
