@@ -23,17 +23,18 @@ transform = T.Compose([
 
 # Instantiate the model
 net = models.mobilenet_v3_small(pretrained=True)
+# net = models.mobilenet_v3_large(pretrained=True)
 net.eval()    # Put the model in inference mode
 # print(net)  # Prints architecture (num layers, etc.)
 
 
 # Run the network for a fixed number of epochs and print the accuracy
-num_epochs = 4              # Number of loops performed, each with a new batch of images
-batch_size = 64             # Number of images processed in a batch (in parallel)
+num_batches = 4              # Number of loops performed, each with a new batch of images
+batch_size = 16             # Number of images processed in a batch (in parallel)
 num_bits_to_corrupt = 5     # Each epoch, the network is reset and this many bits are randomly flipped
 
 total_correct = 0
-for epoch in range(num_epochs):
+for batch_num in range(num_batches):
     # Load images and prepare them in a batch
     image_dir = 'val/'
     random_files = random.sample(os.listdir(image_dir), batch_size)
@@ -50,7 +51,7 @@ for epoch in range(num_epochs):
     out = net_corrupt(batch_t)    # out has shape [N, 1000] where N = batch size
     num_correct = get_num_correct(out, gt_labels)
     total_correct += num_correct
-    print("Epoch %d:  %d / %d" % (epoch, num_correct, batch_size))
-print("Percentage Correct: %.2f%%" % ((total_correct/(batch_size*num_epochs))*100))
+    print("Batch %d:  %d / %d" % (batch_num, num_correct, batch_size))
+print("Percentage Correct: %.2f%%" % ((total_correct / (batch_size * num_batches)) * 100))
 print(num_bits_to_corrupt, "out of", (get_num_params(net)*32),
       "bits corrupted, or %.8f%%" % ((num_bits_to_corrupt/(get_num_params(net)*32))*100))
