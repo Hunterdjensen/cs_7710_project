@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 import torchvision.models as models
 from torchvision import datasets, transforms as T
 from PIL import Image
@@ -8,6 +9,7 @@ from dtype_conversions import float_to_bin
 from dtype_conversions import bin_to_float
 from class_labels import print_top_5
 import bit_flipping
+from bit_flipping import BitFlipLayer
 
 #################################################################################################
 #       This file is Hunter's sandbox, see file run_pytorch.py for more readable code           #
@@ -27,7 +29,7 @@ transform = T.Compose([
 
 # Instantiate the model
 mobilenet = models.mobilenet_v3_small(pretrained=True)
-mobilenet.eval()    # Put the model in inference mode
+mobilenet.eval()  # Put the model in inference mode
 # print(mobilenet)  # Prints architecture (num layers, etc.)
 
 # Load two images, prepare in a batch
@@ -40,15 +42,63 @@ batch_t = torch.stack((img1_t, img2_t), dim=0)  # Batch 2 images together
 print("batch shape: ", batch_t.shape)
 
 # Run the network
-out = mobilenet(batch_t)    # out has shape [N, 1000] where N = batch size
-print_top_5(out)            # Print out the predictions
+out = mobilenet(batch_t)  # out has shape [N, 1000] where N = batch size
+print_top_5(out)  # Print out the predictions
+# print(mobilenet)
+
+# for name, param in mobilenet.named_parameters():
+#     print(name, torch.numel(param))
+
+
+class Testme(nn.Module):  ## it is a subclass of module ##
+    def __init__(self, num_to_flip):
+        super(Testme, self).__init__()
+        self.k = num_to_flip
+
+    def forward(self, x):
+        num_elements = torch.numel(x)
+        view = x.view(num_elements)  # Create a 1D view
+        self.k = self.k % num_elements  # Use modulus in case k > num_elements
+        view[self.k] += 400
+        return x
+
+
+print("********* :) ********")
+bit_flipping.test_adding_BitFlipLayer_layers()
+
+
+# mobilenet.classifier = nn.Sequential(Testme(0), mobilenet.classifier)
+# mobilenet.classifier[0] = nn.Sequential(nn.ReLU(), mobilenet.classifier[0])
+# mobilenet.classifier[0] = nn.Sequential(BitFlipLayer(5000), mobilenet.classifier[0], BitFlipLayer(5000))
+# layer = getattr(mobilenet, 'classifier')[0]
+# getattr(mobilenet, 'classifier')[0] = nn.Sequential(layer, BitFlipLayer(5000))
+
+
+# layer = getattr(getattr(mobilenet, 'features')[11], 'block')[3]
+# layer[1] = nn.Sequential(layer[1], BitFlipLayer(5000))
+# layer = getattr(getattr(getattr(mobilenet, 'features')[11], 'block')[2], 'fc1')
+# setattr(getattr(getattr(mobilenet, 'features')[11], 'block')[2], 'fc1', nn.Sequential(layer, BitFlipLayer(1000)))
+# name = 'features.11.block.2.fc1.weight'
+# name = 'features.11.block.0.1.weight'
+# name = 'features.12.0.weight'
+# name = 'classifier.3.weight'
+# layer, prev, num = get_reference(name, mobilenet)
+# print("Prev and num are: ", prev, num)
+# add_bit_flip_layers(name, mobilenet, 1000)
+
+# mobilenet = bit_flipping.add_activation_bit_flips(mobilenet, 100000000)
+# # print(mobilenet)
+#
+# out = mobilenet(batch_t)  # out has shape [N, 1000] where N = batch size
+# print_top_5(out)  # Print out the predictions
+# print("Number of flips in activations: ", bit_flipping.get_flips_in_activations())
 
 # Test out our dtype conversion functions:
 # float_test = mobilenet.classifier[3].bias[1].item()
 # dtype_conversions.test_float_hex_bin(float_test)
 
-bit_flipping.bit_flip_init(mobilenet)
-mobilenet = bit_flipping.flip_n_bits(200, mobilenet)
+# bit_flipping.bit_flip_init(mobilenet)
+# mobilenet = bit_flipping.flip_n_bits(200, mobilenet)
 
 # Before:  01000000100000100011001110101110 4.068808555603027 toggle the 2th bit
 # Traceback (most recent call last):
@@ -139,13 +189,13 @@ mobilenet = bit_flipping.flip_n_bits(200, mobilenet)
 #     bit_flipping.write_tensor(tensor, 1)
 #     # tensor[1] = 44.44     # Equivalent to the line above
 
-print("***")
-for param in mobilenet.parameters():
-    numel = torch.numel(param)
-    if param.size() == torch.Size([1000]):
-        print("Weight is now: ", param[1])
-# print(mobilenet.parameters())
-
-print("\nNew results:")
-out = mobilenet(batch_t)
-print_top_5(out)
+# print("***")
+# for param in mobilenet.parameters():
+#     numel = torch.numel(param)
+#     if param.size() == torch.Size([1000]):
+#         print("Weight is now: ", param[1])
+# # print(mobilenet.parameters())
+#
+# print("\nNew results:")
+# out = mobilenet(batch_t)
+# print_top_5(out)

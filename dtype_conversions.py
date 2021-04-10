@@ -8,7 +8,8 @@ import struct
 # From: https://stackoverflow.com/questions/23624212/how-to-convert-a-float-into-hex
 # Converts a float type to a string
 def float_to_hex(fl):
-    return hex(struct.unpack('<I', struct.pack('<f', fl))[0])[2:]  # The [2:] removes the 0x prefix
+    length = 8  # Assuming a 32-bit float, then it should be 8 hex digits
+    return hex(struct.unpack('<I', struct.pack('<f', fl))[0])[2:].zfill(length)  # The [2:] removes the 0x prefix
 
 
 # Convert hex string back to float type
