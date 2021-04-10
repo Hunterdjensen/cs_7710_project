@@ -35,7 +35,7 @@ num_batches = 4             # Number of loops performed, each with a new batch o
 batch_size = 16             # Number of images processed in a batch (in parallel)
 num_weights_to_corrupt = 3  # Each batch, the network is reset and this many bits are randomly flipped in the weights
 num_weights_permanently_stuck = 2   # This many bits will have "stuck-at faults" in the weights, permanently stuck at either 1 or 0
-activation_success_odds = 1000000000    # ~1 in 1000000000 activation bits will get flipped during each operation
+activation_success_odds = 1000000000    # 1 in ~1000000000 activation bits will get flipped during each operation
 
 net = flip_n_bits_in_weights(num_weights_permanently_stuck, net)    # Introduce stuck-ats
 net = add_activation_bit_flips(net, activation_success_odds)        # Add layers to flip activation bits (comment out to flip no activation bits)
