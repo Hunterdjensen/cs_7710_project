@@ -38,7 +38,7 @@ num_weights_permanently_stuck = 2   # This many bits will have "stuck-at faults"
 activation_success_odds = 1000000000    # 1 in ~1000000000 activation bits will get flipped during each operation
 
 net = flip_n_bits_in_weights(num_weights_permanently_stuck, net)    # Introduce stuck-ats
-net = add_activation_bit_flips(net, activation_success_odds)        # Add layers to flip activation bits (comment out to turn off)
+net = add_activation_bit_flips(net, activation_success_odds)        # Add layers to flip activation bits (comment-out to turn off)
 
 total_correct = 0
 for batch_num in range(num_batches):
