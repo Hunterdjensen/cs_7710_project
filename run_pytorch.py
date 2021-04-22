@@ -14,15 +14,36 @@ from bit_flipping import get_num_params
 from bit_flipping import get_flips_in_activations
 from bit_flipping import reset_flips_in_activations
 
+##Need to pip install pip install imagenet-c
+##https://github.com/hendrycks/robustness/tree/master/ImageNet-C/imagenet_c
+from imagenet_c import corrupt
 
+
+corruptImg = True
+corNum = 3
 # Define the transform for our images - resizes/crops them to 224x224, normalizes (required for ImageNet)
-transform = T.Compose([
+toSizeCenter = T.Compose([
     T.Resize(256),
-    T.CenterCrop(224),
-    T.ToTensor(),
-    T.Normalize(mean=[0.485, 0.456, 0.406],
+    T.CenterCrop(224)
+    #,T.ToTensor()
+    #,T.Normalize(mean=[0.485, 0.456, 0.406],
+                #std=[0.229, 0.224, 0.225])
+])
+
+transformImg = T.Compose([
+    T.Resize(256),
+    T.CenterCrop(224)
+    ,T.ToTensor()
+    ,T.Normalize(mean=[0.485, 0.456, 0.406],
                 std=[0.229, 0.224, 0.225])
 ])
+
+toTensor = T.Compose([
+    T.ToTensor(),
+    T.Normalize(mean=[0.485, 0.456, 0.406],
+    std=[0.229, 0.224, 0.225])
+    ])
+
 
 # Instantiate the model
 net = models.mobilenet_v3_small(pretrained=True)    # Feel free to experiment with different models here
@@ -41,6 +62,7 @@ net = flip_n_bits_in_weights(num_weights_permanently_stuck, net)    # Introduce 
 net = add_activation_bit_flips(net, activation_success_odds)        # Add layers to flip activation bits (comment-out to turn off)
 
 total_correct = 0
+
 for batch_num in range(num_batches):
     # Load images and prepare them in a batch
     image_dir = 'val/'
@@ -48,9 +70,23 @@ for batch_num in range(num_batches):
     gt_labels = [get_label(file) for file in random_files]  # Ground-truth label for each img
 
     batch_t = torch.empty((batch_size, 3, 224, 224))    # Shape of [N, C, H, W]
+    print('Corrupting with ' + str(corNum))
+
     for i in range(batch_size):
         img = Image.open(image_dir + '/' + random_files[i]).convert("RGB")
-        img_t = transform(img)
+
+
+        ##Add Corruption. Comment out block for baseline
+        if (corruptImg):
+            img_t = toSizeCenter(img)
+            pic_np = np.array(img_t) #numpy arr for corruption
+            pic_np = corrupt(pic_np, corruption_number=corNum) #See Readme for Calls
+            img = Image.fromarray(np.uint8(pic_np)) #Back to PIL
+            img_t = toTensor(img)
+        else:
+            img_t = transformImg(img)
+
+        # img.putdata(pic_np)
         batch_t[i,:,:,:] = img_t
 
     # Flip bits to corrupt the network, and run it
@@ -59,7 +95,7 @@ for batch_num in range(num_batches):
     num_correct = get_num_correct(out, gt_labels)
     total_correct += num_correct
     print("Batch %d:  %d / %d" % (batch_num, num_correct, batch_size))
-    
+
 print("Percentage Correct: %.2f%%" % ((total_correct / (batch_size * num_batches)) * 100))
 print(num_weights_to_corrupt, "out of", (get_num_params(net) * 32),
       " weight bits temporarily corrupted, or %.8f%%" % ((num_weights_to_corrupt / (get_num_params(net) * 32)) * 100))
