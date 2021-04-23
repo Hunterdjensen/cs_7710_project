@@ -24,8 +24,8 @@ num_activation_flips = 0
 # Flips n bits randomly inside the model - main function to call from this file
 def flip_n_bits_in_weights(n, model, print_out=False):
     global init_flag, total_param_count, cumulative_param_count, names
-    if init_flag is False:
-        bit_flip_init(model)
+    # if init_flag is False:
+    bit_flip_init(model)    # Always do init first, because we might have 2+ models running at once (temporary fix)
 
     model_corrupted = copy.deepcopy(model)      # Make a copy of the network to corrupt
 
@@ -50,8 +50,8 @@ def flip_n_bits_in_weights(n, model, print_out=False):
 # or conversely 1:2000 chance the bit will be flipped.
 def add_activation_bit_flips(model, odds_of_no_flip):
     global init_flag, names
-    if init_flag is False:
-        bit_flip_init(model)
+    # if init_flag is False:
+    bit_flip_init(model)    # Always do init first, because we might have 2+ models running at once (temporary fix)
 
     model_corrupted = copy.deepcopy(model)  # Make a copy of the network to corrupt
 

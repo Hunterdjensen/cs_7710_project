@@ -113,9 +113,12 @@ num_weights_to_corrupt = 3  # Each batch, the network is reset and this many bit
 num_weights_permanently_stuck = 2   # This many bits will have "stuck-at faults" in the weights, permanently stuck at either 1 or 0
 activation_success_odds = 1000000000    # 1 in ~1000000000 activation bits will get flipped during each operation
 
+networks_temp = []
 for net in networks:
-    net = flip_n_bits_in_weights(num_weights_permanently_stuck, net)    # Introduce stuck-ats
+    net = flip_n_bits_in_weights(num_weights_permanently_stuck, net)  # Introduce stuck-ats
     net = add_activation_bit_flips(net, activation_success_odds)        # Add layers to flip activation bits (comment-out to turn off)
+    networks_temp.append(net)   # Append it to a new list since 'net' no longer references an object in the 'networks' list
+networks = networks_temp        # Set 'networks' to the new modified networks
 
 total_correct = 0
 
@@ -126,7 +129,7 @@ for batch_num in range(num_batches):
     gt_labels = [get_label(file) for file in random_files]  # Ground-truth label for each img
 
     batch_t = torch.empty((batch_size, 3, 224, 224))    # Shape of [N, C, H, W]
-    print('Corrupting with cornum: ' + str(COR_NUM) +' and COR_SEVEREITY: ' + COR_SEVEREITY)
+    print('Corrupting with cornum: ' + str(COR_NUM) +' and COR_SEVEREITY: ' + str(COR_SEVEREITY))
 
     for i in range(batch_size):
         img = Image.open(image_dir + '/' + random_files[i]).convert("RGB")
@@ -175,23 +178,26 @@ for batch_num in range(num_batches):
         prediction = []
         for image in range(images_per_batch):
             prediction.append(indices[image][0])  # [0] for the largest prediction
-        predicitons.append(prediction) #to be used in comparison loop
+        predictions.append(prediction) #to be used in comparison loop
+    for i, pred in enumerate(predictions):
+        print("Prediction " + str(i) + ":", pred)
 
     finalout = []
     ##TO DO
     #handle difference
     for i in range(0, len(predictions[0])): #Loop through an output array to compare and create a final output arr
         if (predictions[0][i] == predictions[1][i]):
-            finalout.append(predictions[1][0])
+            finalout.append(predictions[0][i].item())   # item() pulls the integer value out of the tensor
         else: ## How does CI work)
             print('diff hit. taking case 0')
-            finalout.append(-1) ##Make a decider
+            finalout.append(predictions[0][i].item()) ##Make a decider
 
-    num_correct = get_num_correct(finalout, gt_labels)
+    num_correct = np.sum(np.array(finalout) == np.array(gt_labels))  # Easiest way to get num_correct, calling class_labels.get_num_correct() doesn't work with this data
 
     total_correct += num_correct
     print("Batch %d:  %d / %d" % (batch_num, num_correct, batch_size))
 
+net = networks[0]   # Temporary, just so that the following lines print out something
 print("Percentage Correct: %.2f%%" % ((total_correct / (batch_size * num_batches)) * 100))
 print(num_weights_to_corrupt, "out of", (get_num_params(net) * 32),
       " weight bits temporarily corrupted, or %.8f%%" % ((num_weights_to_corrupt / (get_num_params(net) * 32)) * 100))
