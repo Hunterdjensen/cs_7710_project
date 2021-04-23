@@ -69,9 +69,9 @@ def add_activation_bit_flips(model, odds_of_no_flip):
 
 
 # Return the total number of parameters (weights/biases) in the model
-def get_num_params(model):
+def get_num_params(model, init=False):
     global init_flag, total_param_count
-    if init_flag is False:
+    if init_flag is False or init:
         bit_flip_init(model)
 
     return total_param_count

@@ -59,7 +59,7 @@ for batch_num in range(num_batches):
     num_correct = get_num_correct(out, gt_labels)
     total_correct += num_correct
     print("Batch %d:  %d / %d" % (batch_num, num_correct, batch_size))
-    
+
 print("Percentage Correct: %.2f%%" % ((total_correct / (batch_size * num_batches)) * 100))
 print(num_weights_to_corrupt, "out of", (get_num_params(net) * 32),
       " weight bits temporarily corrupted, or %.8f%%" % ((num_weights_to_corrupt / (get_num_params(net) * 32)) * 100))
