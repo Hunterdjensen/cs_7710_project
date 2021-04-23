@@ -38,7 +38,7 @@ wide_resnet101_2 = models.wide_resnet101_2(pretrained=True)
 mnasnet1_0 = models.mnasnet1_0(pretrained=True)
 mnasnet0_5 = models.mnasnet0_5(pretrained=True)
 
-# Accuracy values retrieved from: https://pytorch.org/vision/stable/models.html
+# Accuracy values obtained from: https://pytorch.org/vision/stable/models.html
 size_dict = {'alexnet': (get_num_params(alexnet, True), 56.522, 79.066),
              'vgg11': (get_num_params(vgg11, True), 69.02, 88.629),
              'vgg13': (get_num_params(vgg13, True), 69.928, 89.246),
@@ -74,7 +74,8 @@ size_dict = {'alexnet': (get_num_params(alexnet, True), 56.522, 79.066),
              'mnasnet0_5': (get_num_params(mnasnet0_5, True), 67.734, 87.49)
              }
 
-size_dict = dict(sorted(size_dict.items(), key=lambda item: item[1][2]))  # Sort the dictionary
+# Sort the dictionary. Using 'item[1][2]' sorts by accuracy, 'item[1][1]' sorts by size.
+size_dict = dict(sorted(size_dict.items(), key=lambda item: item[1][1]))
 
 print(size_dict)
 model_names = list(size_dict.keys())
