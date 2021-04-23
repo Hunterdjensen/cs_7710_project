@@ -31,16 +31,12 @@ ENSEMBLE = True
 MODEL_COUNT = 2
 MODELS = []
 MODELS.append('densenet') #densenet161
-MODELS.append('inception') #v3')
-##Append more models if count changed
+MODELS.append('inception') #v3
 # MODELS.append('filler')
-# MODELS.append('filler2')
-
 
 #Base Mode
 MODEL = 'mobilenet_v3_small'
 
-##Todo
 ##Switch statement to call models
 def model_to_call(arg):
     switcher = {
@@ -133,8 +129,6 @@ for batch_num in range(num_batches):
 
     for i in range(batch_size):
         img = Image.open(image_dir + '/' + random_files[i]).convert("RGB")
-
-
         ##Add Corruption. Comment out block for baseline
         if (CORRUPT_IMG):
             img_t = toSizeCenter(img)
@@ -149,9 +143,18 @@ for batch_num in range(num_batches):
         batch_t[i,:,:,:] = img_t
 
     # Flip bits to corrupt the network, and run it
-    net_corrupt = flip_n_bits_in_weights(num_weights_to_corrupt, net)
-    out = net_corrupt(batch_t)    # out has shape [N, 1000] where N = batch size
+    net_corrupts = [] #Not sure if Needed
+    outs = []
+    for net in networks:
+        net_corrupt = flip_n_bits_in_weights(num_weights_to_corrupt, net)
+        net_corrupts.append(net_corrupt)
+        out = net_corrupt(batch_t)    # out has shape [N, 1000] where N = batch size
+        outs.append(out)
+
+    for i in range(0, len(outs[0])): #Loop through an output array to compare and create a final output arr
+
     num_correct = get_num_correct(out, gt_labels)
+
     total_correct += num_correct
     print("Batch %d:  %d / %d" % (batch_num, num_correct, batch_size))
 
