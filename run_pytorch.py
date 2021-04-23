@@ -18,9 +18,56 @@ from bit_flipping import reset_flips_in_activations
 ##https://github.com/hendrycks/robustness/tree/master/ImageNet-C/imagenet_c
 from imagenet_c import corrupt
 
+#########################
+### Mode Arguments #####
+#######################
 
-corruptImg = True
-corNum = 3
+#imagenet-c
+CORRUPT_IMG = True
+COR_NUM = 3
+
+#Ensemble Mode
+ENSEMBLE = True
+MODEL_COUNT = 2
+MODELS = []
+MODELS.append('densenet161')
+MODELS.append('inception_v3')
+##Append more models if count changed
+# MODELS.append('filler')
+# MODELS.append('filler2')
+
+
+#Base Mode
+MODEL = 'mobilenet_v3_small'
+
+##Todo
+##Switch statement to call models
+def model_to_call(arg):
+    switcher = {
+        'resnet18' : models.resnet18(pretrained=True),
+        'alexnet' : models.alexnet(pretrained=True),
+        'squeezenet' : models.squeezenet1_0(pretrained=True),
+        'vgg16' : models.vgg16(pretrained=True),
+        'densenet' : models.densenet161(pretrained=True),
+        'inception' : models.inception_v3(pretrained=True),
+        'googlenet' : models.googlenet(pretrained=True),
+        'shufflenet' : models.shufflenet_v2_x1_0(pretrained=True),
+        'mobilenet_v2' : models.mobilenet_v2(pretrained=True),
+        'mobilenet_v3_large' : models.mobilenet_v3_large(pretrained=True),
+        'mobilenet_v3_small' : models.mobilenet_v3_small(pretrained=True),
+        'resnext50_32x4d' : models.resnext50_32x4d(pretrained=True),
+        'wide_resnet50_2' : models.wide_resnet50_2(pretrained=True),
+        'mnasnet' : models.mnasnet1_0(pretrained=True)
+    }
+    net = switcher.get(arg, -1)
+    if(net == -1):
+        print('invalid key of: ' + arg + '. defaulting to mobilenet_v3_small')
+        net = models.mobilenet_v3_small(pretrained=True)
+    return net
+
+######################
+## Transformations ###
+######################
 # Define the transform for our images - resizes/crops them to 224x224, normalizes (required for ImageNet)
 toSizeCenter = T.Compose([
     T.Resize(256),
@@ -44,8 +91,18 @@ toTensor = T.Compose([
     std=[0.229, 0.224, 0.225])
     ])
 
+#################################
+# Instantiate the model(s)
+networks = []
 
-# Instantiate the model
+# network used shouldn't be hardcoded
+#NOT SURE IF THIS FUNCTIONS
+if (ENSEMBLE):
+    for m in MODELS:
+        net = model_to_call(m)
+        net.eval()
+        networks.append(net)
+
 net = models.mobilenet_v3_small(pretrained=True)    # Feel free to experiment with different models here
 net.eval()    # Put the model in inference mode
 # print(net)  # Prints architecture (num layers, etc.)
@@ -70,17 +127,17 @@ for batch_num in range(num_batches):
     gt_labels = [get_label(file) for file in random_files]  # Ground-truth label for each img
 
     batch_t = torch.empty((batch_size, 3, 224, 224))    # Shape of [N, C, H, W]
-    print('Corrupting with ' + str(corNum))
+    print('Corrupting with ' + str(COR_NUM))
 
     for i in range(batch_size):
         img = Image.open(image_dir + '/' + random_files[i]).convert("RGB")
 
 
         ##Add Corruption. Comment out block for baseline
-        if (corruptImg):
+        if (CORRUPT_IMG):
             img_t = toSizeCenter(img)
             pic_np = np.array(img_t) #numpy arr for corruption
-            pic_np = corrupt(pic_np, corruption_number=corNum) #See Readme for Calls
+            pic_np = corrupt(pic_np, corruption_number=COR_NUM) #See Readme for Calls
             img = Image.fromarray(np.uint8(pic_np)) #Back to PIL
             img_t = toTensor(img)
         else:
