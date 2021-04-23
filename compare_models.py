@@ -74,8 +74,8 @@ size_dict = {'alexnet': (get_num_params(alexnet, True), 56.522, 79.066),
              'mnasnet0_5': (get_num_params(mnasnet0_5, True), 67.734, 87.49)
              }
 
-# Sort the dictionary. Using 'item[1][2]' sorts by accuracy, 'item[1][1]' sorts by size.
-size_dict = dict(sorted(size_dict.items(), key=lambda item: item[1][1]))
+# Sort the dictionary. Using 'item[1][2]' sorts by accuracy, 'item[1]' sorts by size.
+size_dict = dict(sorted(size_dict.items(), key=lambda item: item[1][2]))
 
 print(size_dict)
 model_names = list(size_dict.keys())
