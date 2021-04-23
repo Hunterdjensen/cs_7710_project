@@ -1,11 +1,14 @@
 import torch
-
+import os
 
 #################################################################################################
 #     Reads in 'imagenet_classes.txt' and interfaces with it for viewing label predictions.     #
 #     Also reads 'val.txt' and creates a dictionary so that image file names can map to         #
 #     their ground-truth labels.                                                                #
 #################################################################################################
+here = os.path.dirname(os.path.abspath(__file__))
+#print(here)
+filename = os.path.join(here, 'imagenet_clases.txt')
 
 # Read in the labels from 'imagenet_classes.txt'
 labels = []
