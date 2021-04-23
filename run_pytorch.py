@@ -25,6 +25,7 @@ from imagenet_c import corrupt
 #imagenet-c
 CORRUPT_IMG = True
 COR_NUM = 3
+COR_SEVEREITY = 1
 
 #Ensemble Mode
 ENSEMBLE = True
@@ -125,7 +126,7 @@ for batch_num in range(num_batches):
     gt_labels = [get_label(file) for file in random_files]  # Ground-truth label for each img
 
     batch_t = torch.empty((batch_size, 3, 224, 224))    # Shape of [N, C, H, W]
-    print('Corrupting with ' + str(COR_NUM))
+    print('Corrupting with cornum: ' + str(COR_NUM) +' and COR_SEVEREITY: ' + COR_SEVEREITY)
 
     for i in range(batch_size):
         img = Image.open(image_dir + '/' + random_files[i]).convert("RGB")
@@ -133,7 +134,7 @@ for batch_num in range(num_batches):
         if (CORRUPT_IMG):
             img_t = toSizeCenter(img)
             pic_np = np.array(img_t) #numpy arr for corruption
-            pic_np = corrupt(pic_np, corruption_number=COR_NUM) #See Readme for Calls
+            pic_np = corrupt(pic_np, severity=COR_SEVEREITY, corruption_number=COR_NUM) #See Readme for Calls
             img = Image.fromarray(np.uint8(pic_np)) #Back to PIL
             img_t = toTensor(img)
         else:
@@ -145,15 +146,48 @@ for batch_num in range(num_batches):
     # Flip bits to corrupt the network, and run it
     net_corrupts = [] #Not sure if Needed
     outs = []
+    predictions = []
+
     for net in networks:
         net_corrupt = flip_n_bits_in_weights(num_weights_to_corrupt, net)
         net_corrupts.append(net_corrupt)
         out = net_corrupt(batch_t)    # out has shape [N, 1000] where N = batch size
         outs.append(out)
 
-    for i in range(0, len(outs[0])): #Loop through an output array to compare and create a final output arr
+######
+# Compare predictions to correct labels, and return the number correct
+    """
+    def get_num_correct(output, correct_labels):
+        images_per_batch, num_classes = output.shape
+        _, indices = torch.sort(output, descending=True)
+        num_correct = 0
 
-    num_correct = get_num_correct(out, gt_labels)
+        for image in range(images_per_batch):
+            prediction = indices[image][0]  # [0] for the largest prediction
+            if prediction == correct_labels[image]:
+                num_correct += 1
+
+        return num_correct
+    """
+    for output in outs:
+        images_per_batch, num_classes = output.shape
+        _, indices = torch.sort(output, descending=True)
+        prediction = []
+        for image in range(images_per_batch):
+            prediction.append(indices[image][0])  # [0] for the largest prediction
+        predicitons.append(prediction) #to be used in comparison loop
+
+    finalout = []
+    ##TO DO
+    #handle difference
+    for i in range(0, len(predictions[0])): #Loop through an output array to compare and create a final output arr
+        if (predictions[0][i] == predictions[1][i]):
+            finalout.append(predictions[1][0])
+        else: ## How does CI work)
+            print('diff hit. taking case 0')
+            finalout.append(-1) ##Make a decider
+
+    num_correct = get_num_correct(finalout, gt_labels)
 
     total_correct += num_correct
     print("Batch %d:  %d / %d" % (batch_num, num_correct, batch_size))
