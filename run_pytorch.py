@@ -30,8 +30,8 @@ COR_NUM = 3
 ENSEMBLE = True
 MODEL_COUNT = 2
 MODELS = []
-MODELS.append('densenet161')
-MODELS.append('inception_v3')
+MODELS.append('densenet') #densenet161
+MODELS.append('inception') #v3')
 ##Append more models if count changed
 # MODELS.append('filler')
 # MODELS.append('filler2')
@@ -102,11 +102,12 @@ if (ENSEMBLE):
         net = model_to_call(m)
         net.eval()
         networks.append(net)
+else:
+    netw = models.mobilenet_v3_small(pretrained=True)    # Feel free to experiment with different models here
+    netw.eval()    # Put the model in inference mode
+    networks.append(netw)
 
-net = models.mobilenet_v3_small(pretrained=True)    # Feel free to experiment with different models here
-net.eval()    # Put the model in inference mode
 # print(net)  # Prints architecture (num layers, etc.)
-
 
 # Run the network for a fixed number of batches and print the accuracy
 num_batches = 4             # Number of loops performed, each with a new batch of images
@@ -115,8 +116,9 @@ num_weights_to_corrupt = 3  # Each batch, the network is reset and this many bit
 num_weights_permanently_stuck = 2   # This many bits will have "stuck-at faults" in the weights, permanently stuck at either 1 or 0
 activation_success_odds = 1000000000    # 1 in ~1000000000 activation bits will get flipped during each operation
 
-net = flip_n_bits_in_weights(num_weights_permanently_stuck, net)    # Introduce stuck-ats
-net = add_activation_bit_flips(net, activation_success_odds)        # Add layers to flip activation bits (comment-out to turn off)
+for net in networks:
+    net = flip_n_bits_in_weights(num_weights_permanently_stuck, net)    # Introduce stuck-ats
+    net = add_activation_bit_flips(net, activation_success_odds)        # Add layers to flip activation bits (comment-out to turn off)
 
 total_correct = 0
 
