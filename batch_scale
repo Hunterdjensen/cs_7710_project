@@ -1,0 +1,18 @@
+#!/usr/bin/bash
+
+echo 'testing'
+
+configFiles=/home/ryan/Documents/SCALE-Sim-master/configs/*
+modelFiles=/home/ryan/Documents/SCALE-Sim-master/topologies/test/*
+
+for cFile in $configFiles
+do
+	for mFile in $modelFiles
+	do
+		echo 'starting...'
+		python3 scale.py -arch_config=$cFile -network=$mFile
+		echo 'finished.'
+	done
+done
+
+
