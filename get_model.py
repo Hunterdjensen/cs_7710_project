@@ -2,8 +2,7 @@ import torchvision.models as models
 
 
 # New implementation: Loading all of the models into a switch statement was
-# causing a ~20s delay to run, this way we only call the function that we
-# want, making it quicker :)
+# causing a ~20s delay to run, this way we only call the function that we want
 def alexnet():
     return models.alexnet(pretrained=True)
 
