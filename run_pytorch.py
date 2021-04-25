@@ -5,10 +5,10 @@ import random
 import os  # For accessing files
 from class_labels import get_label
 from class_labels import vote
-from bit_flipping import flip_n_bits_in_weights
+from bit_flipping import flip_n_bits_in_weights, flip_stochastic_bits_in_weights
 from bit_flipping import add_activation_bit_flips
 from bit_flipping import get_num_params
-from bit_flipping import get_flips_in_activations
+from bit_flipping import get_flips_in_activations, get_flips_in_weights
 from bit_flipping import reset_flips_in_activations
 from get_model import get_model
 from transformations import toSizeCenter, toTensor
@@ -20,7 +20,7 @@ from imagenet_c import corrupt
 #                                          Parameters:                                          #
 #################################################################################################
 
-MODELS = ['inception_v3', 'densenet161', 'alexnet']    # For an ensemble, put >1 network here
+MODELS = ['resnext101_32x8d', 'densenet161', 'inception_v3']    # For an ensemble, put >1 network here
 
 # imagenet-c:
 CORRUPT_IMG = True
@@ -28,12 +28,12 @@ COR_NUM = 3
 COR_SEVERITY = 1
 
 # Bit-flipping corruptions:
-num_weights_to_corrupt = 3  # Each batch, the network is reset and this many bits are randomly flipped in the weights
-num_weights_permanently_stuck = 2  # This many bits will have "stuck-at faults" in the weights, permanently stuck at either 1 or 0
-activation_success_odds = 1000000000  # 1 in ~1000000000 activation bits will get flipped during each operation
+stuck_at_faults = 2     # This many bits will have "stuck-at faults" in the weights, permanently stuck at either 1 or 0
+weights_BER = 1e-10      # Bit Error Rate for weights (applied each batch, assuming weights are reloaded for each batch)
+activation_BER = 1e-10   # Bit Error Rate for activations, i.e. 1e-9 = ~(1 in 1000000000) errors in the activations
 
 # Model parameters:
-num_batches = 2  # Number of loops performed, each with a new batch of images
+num_batches = 4  # Number of loops performed, each with a new batch of images
 batch_size = 8  # Number of images processed in a batch (in parallel)
 val_image_dir = 'val/'  # The directory where validation images are stored
 voting_heuristic = 'simple'     # Determines the algorithm used to predict between multiple models
@@ -49,8 +49,10 @@ for i, m in enumerate(MODELS):
     net = get_model(m)
     net.name = str(i) + '_' + net.__class__.__name__  # Give the net a unique name (used by bit_flipping.py)
     net.eval()  # Put in evaluation mode (already pretrained)
-    net = flip_n_bits_in_weights(num_weights_permanently_stuck, net)  # Introduce stuck-ats
-    net = add_activation_bit_flips(net, activation_success_odds)  # Add layers to flip activation bits
+    if stuck_at_faults != 0:
+        net = flip_n_bits_in_weights(stuck_at_faults, net)  # Introduce stuck-ats
+    if activation_BER != 0:     # If nonzero chance of activation bit flips
+        net = add_activation_bit_flips(net, activation_BER)  # Add layers to flip activation bits
     networks.append(net)
 
 if CORRUPT_IMG:
@@ -75,11 +77,12 @@ for batch_num in range(num_batches):
         img_t = toTensor(img)
         batch_t[i,:,:,:] = img_t
 
-    # Flip bits to corrupt the network, and run it
+    # Run each network and store output in 'out'
     out = torch.empty((len(MODELS), batch_size, 1000))    # Shape [M, N, 1000] where M = num models, and N = batch size
     for i, net in enumerate(networks):
-        net_corrupt = flip_n_bits_in_weights(num_weights_to_corrupt, net)
-        out[i,:,:] = net_corrupt(batch_t)
+        if weights_BER != 0:    # If nonzero chance of weight bit flips
+            net = flip_stochastic_bits_in_weights(weights_BER, net)
+        out[i,:,:] = net(batch_t)
 
     predictions = vote(out, voting_heuristic)   # Returns predictions, with shape [N] (one prediction per image in batch)
     num_correct = torch.sum(predictions == gt_labels).item()    # Item() pulls the integer out of the tensor
@@ -95,12 +98,9 @@ for batch_num in range(num_batches):
 print("Percentage Correct: %.2f%%" % ((total_correct / (batch_size * num_batches)) * 100))
 for i, net in enumerate(networks):
     print(MODELS[i] + str(':'))
-    print("\t", num_weights_to_corrupt, "out of", (get_num_params(net) * 32),
-          " weight bits temporarily corrupted, or %.8f%%"
-          % ((num_weights_to_corrupt / (get_num_params(net) * 32)) * 100))
-    print("\t", num_weights_permanently_stuck, "out of", (get_num_params(net) * 32),
-          " weight bits permanently corrupted, or %.8f%%"
-          % ((num_weights_permanently_stuck / (get_num_params(net) * 32)) * 100))
-    print("\t", get_flips_in_activations(net),
-          "activation bits were flipped during operation, approx: %.8f%%"
-          % ((1 / (1 + activation_success_odds)) * 100))
+    print("\t Total bit flips in weights:", get_flips_in_weights(net), "or %.0f per minute of inference"
+          % (get_flips_in_weights(net) / (num_batches / (32*60))))          # 32 batches/second (32 fps) * 60 seconds
+    print("\t Total bit flips in activations:", get_flips_in_activations(net), "or %.0f per minute of inference"
+          % (get_flips_in_activations(net) / (num_batches / (32*60))))      # 32 batches/second (32 fps) * 60 seconds
+    print("\t", stuck_at_faults, "out of", (get_num_params(net) * 32), " weight bits permanently corrupted, or %.8f%%"
+          % ((stuck_at_faults / (get_num_params(net) * 32)) * 100))

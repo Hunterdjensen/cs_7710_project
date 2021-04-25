@@ -11,17 +11,21 @@ import copy
 
 # Global variables:
 init_flags = {}
-total_param_count = {}           # Total number of parameters in the network
-cumulative_param_count = {}      # List of the param counts per layer, to use w/ Numpy.digitize()
-names = {}                      # List of layer "names" (i.e: 'features.12.block.2.fc1.weight')
-num_activation_flips = {}
+total_param_count = {}  # Total number of parameters in the network
+cumulative_param_count = {}  # List of the param counts per layer, to use w/ Numpy.digitize()
+names = {}  # List of layer "names" (i.e: 'features.12.block.2.fc1.weight')
+num_activation_flips = {}   # Count of activation bitflips that have occurred for the model
+num_weight_flips = {}       # Count of weight bitflips that have occurred for the model (not counting stuck-ats)
+
+
+# num_weight_flips_per_batch = {}  # Fixed number of weight flips for a model depending on its size and its Bit Error Rate
 
 
 #################################################################################################
 #                                 User-called functions:                                        #
 #################################################################################################
 
-# Flips n bits randomly inside the model - main function to call from this file
+# Flips n bits randomly inside the model
 def flip_n_bits_in_weights(n, model, print_out=False):
     global init_flags, total_param_count, cumulative_param_count, names
     model_name = model.name
@@ -44,27 +48,56 @@ def flip_n_bits_in_weights(n, model, print_out=False):
     return model_corrupted
 
 
+# Flips bits randomly inside the model
+def flip_stochastic_bits_in_weights(bit_error_rate, model, print_out=False):
+    global init_flags, total_param_count, cumulative_param_count, names
+    model_name = model.name
+    if model_name not in init_flags or init_flags[model_name] is False:
+        bit_flip_init(model)  # Initialize the model if not yet seen
+
+    model_corrupted = copy.deepcopy(model)  # Make a copy of the network to corrupt
+
+    # Then pick n random numbers which will correspond to which parameters to corrupt
+    bits_per_element = 32   # FIXME: Adjust to 16 bits per weight to be more realistic?
+    probability_of_flip = bits_per_element * bit_error_rate
+    params_to_flip = np.random.choice([1, 0],
+                                      size=total_param_count[model_name],
+                                      p=[probability_of_flip, 1 - probability_of_flip])
+    indices_of_flips = np.where(params_to_flip == 1)[0]  # Creates a 1-D Numpy array of param indices to corrupt
+    num_weight_flips[model_name] += indices_of_flips.shape[0]
+
+    # For each of those random parameters, get a reference to the layer the parameter belongs
+    # to, grab its tensor, and then corrupt the parameter inside that tensor by flipping 1 bit
+    for rand_param in list(indices_of_flips):
+        layer_num = np.digitize(rand_param, cumulative_param_count[model_name])  # Find corresponding bin (layer) to corrupt
+        if print_out is True:
+            print("Flipping a bit in parameter #%d in layer %d (%s)" % (rand_param, layer_num, names[model_name][layer_num]))
+        layer_tensor = get_layer_tensor(names[model_name][layer_num], model_corrupted)
+        corrupt_weights(layer_tensor, k=rand_param, print_out=print_out)
+    return model_corrupted
+
+
 # Goes through all of the layers found in the model using model.named_parameters() and adds a
 # custom BitFlipLayer after each of them, which stochastically flips bits in the activations as
-# they're passing through.  The variable odds_of_no_flip determines the probability of a bit
-# not flipping - if odd_of_no_flip is 2000, then there's a 2000:1 chance the bit will be unchanged,
-# or conversely 1:2000 chance the bit will be flipped.
-def add_activation_bit_flips(model, odds_of_no_flip):
+# they're passing through.  The variable bit_error_rate determines the probability of a bit
+# flipping - if it's 1/2000, then there's a 2000:1 chance the bit will be unchanged, or
+# conversely 1:2000 chance the bit will be flipped.
+def add_activation_bit_flips(model, bit_error_rate):
     global init_flag, names
     model_name = model.name
     if model_name not in init_flags or init_flags[model_name] is False:
-        bit_flip_init(model)    # Initialize the model if not yet seen
+        bit_flip_init(model)  # Initialize the model if not yet seen
 
     model_corrupted = copy.deepcopy(model)  # Make a copy of the network to corrupt
 
     for name in names[model_name]:
-        layer, prev, num = get_reference(name, model_corrupted)     # Get the reference to a layer
+        layer, prev, num = get_reference(name, model_corrupted)  # Get the reference to a layer
         if layer is not None:  # That means that this is a valid layer to add a BitFlipLayer behind (it's a layer with a weight)
             if num:  # The final attribute is a number, we can index with []
-                layer[int(prev)] = nn.Sequential(layer[int(prev)], BitFlipLayer(odds_of_no_flip, model_name))
+                layer[int(prev)] = nn.Sequential(layer[int(prev)], BitFlipLayer(bit_error_rate, model_name))
             else:  # The last attribute isn't an index, need to use set/get attr
                 # The following is messy but is essentially: layer = nn.Sequential(layer, BitFlipLayer())
-                setattr(layer, prev, nn.Sequential(getattr(layer, prev), BitFlipLayer(odds_of_no_flip, model_name)))
+                setattr(layer, prev, nn.Sequential(getattr(layer, prev), BitFlipLayer(bit_error_rate, model_name)))
 
     bit_flip_init(model_corrupted)  # IMPORTANT: Calls init again so that the global variable 'names' stays up-to-date
     return model_corrupted
@@ -75,23 +108,20 @@ def get_num_params(model, init=False):
     global init_flags, total_param_count
     model_name = model.name
     if model_name not in init_flags or init_flags[model_name] is False or init:
-        bit_flip_init(model)    # Initialize the model if not yet seen
+        bit_flip_init(model)  # Initialize the model if not yet seen
 
     return total_param_count[model_name]
 
 
 # Get the number of bit flips that have occurred in the activations (BitFlipLayer layers)
 # since the global variable was last reset
-def get_flips_in_activations(model=None):
+def get_flips_in_activations(model):
     global num_activation_flips, init_flags
     model_name = model.name
-    if model is None:
-        print("Note: get_flips_in_activations should be updated to pass in the model as well.")
-        return 0    # Just to catch bad calls
-    elif model_name in init_flags and init_flags[model_name] is True:   # Correct access
-        return num_activation_flips[model_name]
-    else:
-        exit("Error, model " + str(model_name) + " has not yet been initialized by bit_flipping.py")
+    if model_name not in init_flags or init_flags[model_name] is False:
+        bit_flip_init(model)  # Initialize the model if not yet seen
+
+    return num_activation_flips[model_name]
 
 
 # Resets the global variable that's incremented in BitFlipLayer layers, which count activation bit flips
@@ -104,29 +134,50 @@ def reset_flips_in_activations(model):
         exit("Error, model " + str(model_name) + " has not yet been initialized by bit_flipping.py")
 
 
+# Get the number of bit flips that have occurred in the weights (from calls to flip_stochastic_bits_in_weights())
+# since the global variable was last reset
+def get_flips_in_weights(model):
+    global num_weight_flips, init_flags
+    model_name = model.name
+    if model_name not in init_flags or init_flags[model_name] is False:
+        bit_flip_init(model)  # Initialize the model if not yet seen
+
+    return num_weight_flips[model_name]
+
+
+# Resets the global variable that's incremented in BitFlipLayer layers, which count activation bit flips
+def reset_flips_in_weights(model):
+    global num_weight_flips, init_flags
+    model_name = model.name
+    if model_name in init_flags and init_flags[model_name] is True:  # Correct access
+        num_weight_flips[model_name] = 0
+    else:
+        exit("Error, model " + str(model_name) + " has not yet been initialized by bit_flipping.py")
+
+
 #################################################################################################
 #                                   Custom PyTorch Layer:                                       #
 #################################################################################################
 
 # PyTorch Sequential layer that stochastically flips bits in the activations
 class BitFlipLayer(nn.Module):
-    def __init__(self, odds_of_no_bit_flip, model_name):
+    def __init__(self, bit_error_rate, model_name):
         super(BitFlipLayer, self).__init__()
-        odds = odds_of_no_bit_flip     # i.e. if this is 2000, then ~1 per 2000 bits will flip
-        self.probability_of_flip = 1 / (1 + odds)   # Probability of a bit flip, per bit
+        self.probability_of_flip = bit_error_rate  # Probability of a bit flip, per bit (Bit Error Rate or BER)
         self.model_name = model_name
 
     def forward(self, x):
         global num_activation_flips
         num_elements = torch.numel(x)
-        bits_per_element = 32
+        bits_per_element = 32       # FIXME: Adjust to 16-bit activations for more accuracy?
         # Find probability per activation element, so we can use the corrupt_weights() function from above
         probability_of_flip_per_element = bits_per_element * self.probability_of_flip
-        activations_flipped = np.random.choice([1, 0], size=num_elements, p=[probability_of_flip_per_element, 1-probability_of_flip_per_element])
-        indices_of_flips = np.where(activations_flipped == 1)[0]    # Creates a 1-D Numpy array of indices to corrupt
+        activations_flipped = np.random.choice([1, 0], size=num_elements,
+                                               p=[probability_of_flip_per_element, 1 - probability_of_flip_per_element])
+        indices_of_flips = np.where(activations_flipped == 1)[0]  # Creates a 1-D Numpy array of indices to corrupt
         for idx in list(indices_of_flips):
             corrupt_weights(x, idx, print_out=False)
-        num_activation_flips[self.model_name] += indices_of_flips.shape[0]   # This global variable is to give us an idea of how many flips are occurring
+        num_activation_flips[self.model_name] += indices_of_flips.shape[0]  # This global variable is to give us an idea of how many flips are occurring
         return x
 
 
@@ -141,9 +192,11 @@ def bit_flip_init(model):
     global init_flags, total_param_count, cumulative_param_count, names, num_activation_flips
     model_name = model.name
     init_flags[model_name] = True
-    reset_flips_in_activations(model)    # Reset here: after initialization, activations flips start at 0
+    reset_flips_in_activations(model)   # Reset here: after initialization, activations flips start at 0
+    reset_flips_in_weights(model)       # Also reset the weight bit flips
     total_param_count_ = 0
     cumulative_param_count_ = []
+    num_weight_flips_per_batch_ = 0
     names_ = []
 
     for name, param in model.named_parameters():
@@ -165,9 +218,9 @@ def get_layer_tensor(name, model):
     tensor = model
     split = name.split('.')  # 'features.11.block.2.fc1.weight' -> ['features', '11', 'block', '2', 'fc1', 'weight']
     for attribute in split:
-        if attribute.isnumeric():   # Attribute is a number
+        if attribute.isnumeric():  # Attribute is a number
             tensor = tensor[int(attribute)]
-        else:                       # Attribute is a word
+        else:  # Attribute is a word
             tensor = getattr(tensor, attribute)
     return tensor
 
@@ -181,9 +234,9 @@ def get_layer(name, model):
     split = name.split('.')  # 'features.11.block.2.fc1.weight' -> ['features', '11', 'block', '2', 'fc1', 'weight']
     split = split[:-1]  # Get rid of weight or bias, we want the layer, not the layer tensor
     for attribute in split:
-        if attribute.isnumeric():   # Attribute is a number
+        if attribute.isnumeric():  # Attribute is a number
             tensor = tensor[int(attribute)]
-        else:                       # Attribute is a word
+        else:  # Attribute is a word
             tensor = getattr(tensor, attribute)
     return tensor
 
@@ -206,16 +259,16 @@ def get_reference(name, model):
     prev_is_num = False
     prev = None
     for attribute in split:
-        if attribute == 'weight':   # done
+        if attribute == 'weight':  # done
             return layer, prev, prev_is_num
         else:
-            if prev is None:    # First iteration
+            if prev is None:  # First iteration
                 prev = attribute
                 prev_is_num = attribute.isnumeric()
-            else:   # Second+ iteration
+            else:  # Second+ iteration
                 if prev_is_num:
                     layer = layer[int(prev)]
-                else:   # Previous was a word
+                else:  # Previous was a word
                     layer = getattr(layer, prev)
                 prev = attribute
                 prev_is_num = attribute.isnumeric()
@@ -228,20 +281,20 @@ def get_reference(name, model):
 def corrupt_weights(layer_tensor, k, print_out=False, test_write_value=None):
     num_elements = torch.numel(layer_tensor)
     view = layer_tensor.view(num_elements)  # Create a 1D view
-    k = k % num_elements    # Use modulus in case k > num_elements
-    with torch.no_grad():   # Use no_grad so PyTorch doesn't try to do back-prop on this
-        if test_write_value is not None:    # For testing purposes only
+    k = k % num_elements  # Use modulus in case k > num_elements
+    with torch.no_grad():  # Use no_grad so PyTorch doesn't try to do back-prop on this
+        if test_write_value is not None:  # For testing purposes only
             view[k] = test_write_value
-        else:   # Normal operation:
-            assert(view[k].dtype == torch.float32)  # Haven't considered data-type conversions for non-floats yet :)
-            binary = float_to_bin(view[k].item())               # Convert the desired parameter into binary
-            bit_to_flip = np.random.randint(0, len(binary))     # Choose which of its bit to flip
+        else:  # Normal operation:
+            assert (view[k].dtype == torch.float32)  # Haven't considered data-type conversions for non-floats yet :)
+            binary = float_to_bin(view[k].item())  # Convert the desired parameter into binary
+            bit_to_flip = np.random.randint(0, len(binary))  # Choose which of its bit to flip
             if print_out is True:
                 print("**********")
-                print("Before: ", binary, view[k].item(), "toggle the %dth bit" % (bit_to_flip+1))
+                print("Before: ", binary, view[k].item(), "toggle the %dth bit" % (bit_to_flip + 1))
 
-            binary = binary[:bit_to_flip] + toggle_bit(binary[bit_to_flip]) + binary[bit_to_flip+1:]
-            view[k] = bin_to_float(binary)                      # Put the corrupted data into the tensor
+            binary = binary[:bit_to_flip] + toggle_bit(binary[bit_to_flip]) + binary[bit_to_flip + 1:]
+            view[k] = bin_to_float(binary)  # Put the corrupted data into the tensor
             if print_out is True:
                 print("After:  ", binary, view[k].item())
                 print("**********")
@@ -280,7 +333,7 @@ def test_weight_corruption():
 # This is code that runs through using the function add_activation_bit_flips() and should
 # show results that are increasingly worse if you lower the odds (at default you should
 # see ~20-30)
-def test_adding_BitFlipLayer_layers(odds=10000000):
+def test_adding_BitFlipLayer_layers(odds=(1 / 10000000)):
     import torchvision.models as models
     from torchvision import transforms as T
     from PIL import Image
@@ -303,7 +356,7 @@ def test_adding_BitFlipLayer_layers(odds=10000000):
     img2_t = transform(img2)
     batch_t = torch.stack((img1_t, img2_t), dim=0)  # Batch 2 images together
 
-    bit_flip_init(mobilenet)    # Manually redo here just in case
+    bit_flip_init(mobilenet)  # Manually redo here just in case
     mobilenet = add_activation_bit_flips(mobilenet, odds)
     print(mobilenet)
 
