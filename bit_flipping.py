@@ -151,6 +151,22 @@ def get_layer_tensor(name, model):
     return tensor
 
 
+# Same as the function above (get_layer_tensor) except instead of going all the way in
+# and pulling out the weight/bias tensor, we just want the layer itself.  Note that it
+# can't be written to, you must use get_reference() to rewrite a layer.  But this will
+# give you a reference.  Written exclusively for extract_model_attributes.py
+def get_layer(name, model):
+    tensor = model
+    split = name.split('.')  # 'features.11.block.2.fc1.weight' -> ['features', '11', 'block', '2', 'fc1', 'weight']
+    split = split[:-1]  # Get rid of weight or bias, we want the layer, not the layer tensor
+    for attribute in split:
+        if attribute.isnumeric():   # Attribute is a number
+            tensor = tensor[int(attribute)]
+        else:                       # Attribute is a word
+            tensor = getattr(tensor, attribute)
+    return tensor
+
+
 # Does the exact same thing as get_layer_tensor, but... messier.  If you must know:
 # Since Python passes by object-reference, we can't assign a value to an object reference
 # and have it affect the original object.  In this case, I'm trying to get a layer from our network

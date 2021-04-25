@@ -1,0 +1,10 @@
+Layer name, IFMAP Height, IFMAP Width, Filter Height, Filter Width, Channels, Num Filter, Strides,
+
+features_0, 224, 224, 11, 11, 3, 64, 4,
+features_3, 27, 27, 5, 5, 64, 192, 1,
+features_6, 13, 13, 3, 3, 192, 384, 1,
+features_8, 13, 13, 3, 3, 384, 256, 1,
+features_10, 13, 13, 3, 3, 256, 256, 1,
+classifier_1, 1, 1, 1, 1, 9216, 4096, 1,
+classifier_4, 1, 1, 1, 1, 4096, 4096, 1,
+classifier_6, 1, 1, 1, 1, 4096, 1000, 1,

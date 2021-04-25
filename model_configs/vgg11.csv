@@ -1,0 +1,13 @@
+Layer name, IFMAP Height, IFMAP Width, Filter Height, Filter Width, Channels, Num Filter, Strides,
+
+features_0, 224, 224, 3, 3, 3, 64, 1,
+features_3, 112, 112, 3, 3, 64, 128, 1,
+features_6, 56, 56, 3, 3, 128, 256, 1,
+features_8, 56, 56, 3, 3, 256, 256, 1,
+features_11, 28, 28, 3, 3, 256, 512, 1,
+features_13, 28, 28, 3, 3, 512, 512, 1,
+features_16, 14, 14, 3, 3, 512, 512, 1,
+features_18, 14, 14, 3, 3, 512, 512, 1,
+classifier_0, 1, 1, 1, 1, 25088, 4096, 1,
+classifier_3, 1, 1, 1, 1, 4096, 4096, 1,
+classifier_6, 1, 1, 1, 1, 4096, 1000, 1,
