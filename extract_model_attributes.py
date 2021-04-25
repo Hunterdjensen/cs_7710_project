@@ -6,6 +6,7 @@ import torchvision.models as models
 from bit_flipping import get_reference
 from bit_flipping import get_layer
 from get_model import get_model
+from get_model import get_model2
 
 
 # from torchsummary import summary
@@ -134,6 +135,7 @@ available_models = ['alexnet', 'vgg11', 'vgg13', 'vgg16', 'vgg19', 'vgg11_bn',
                     'wide_resnet50_2', 'wide_resnet101_2', 'mnasnet1_0', 'mnasnet0_5']
 for model in available_models:
     create_csv(model)
+
 
 # Old attempts that didn't pan out:
 # # Works but I can't figure out how to modify the network using .modules()
