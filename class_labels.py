@@ -8,7 +8,7 @@ import os
 #################################################################################################
 here = os.path.dirname(os.path.abspath(__file__))
 #print(here)
-filename = os.path.join(here, 'imagenet_clases.txt')
+filename = os.path.join(here, 'imagenet_classes.txt')
 
 # Read in the labels from 'imagenet_classes.txt'
 labels = []
@@ -58,3 +58,23 @@ def get_num_correct(output, correct_labels):
             num_correct += 1
 
     return num_correct
+
+
+# Create predictions based on the votes from 1 or more models.
+# Currently, the only mode supported is 'simple', which uses hard voting between the models
+def vote(out, heuristic):
+    if heuristic == 'simple':
+        # Each model picks their Top 1, majority wins, tie-breakers go to the first model
+        M, N, C = out.shape     # M = num models, N = batch size, C = num classes
+        _, indices = torch.sort(out, descending=True)
+        predictions = indices[:,:,0]    # Shape [M, N] (no longer a C because we only picked the top predictions)
+        # print(predictions)
+        if M <= 2:  # Voting between two or fewer models
+            return predictions[0,:]     # Whether they agree or not, the first will always win
+        if M == 3:
+            # If the 2nd and 3rd don't agree, then the 1st model always wins
+            bottom_two = torch.eq(predictions[1,:], predictions[2,:])
+            correct_model = torch.where(bottom_two, 1, 0)    # Aka where 2nd and 3rd agree, use 2nd, else use 1st model
+            return predictions.gather(dim=0, index=correct_model.unsqueeze(0))    # Index predictions with correct_model
+    # TODO: Add more voting mechanisms here
+    # elif heuristic == '':

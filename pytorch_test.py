@@ -12,6 +12,7 @@ import bit_flipping
 from bit_flipping import BitFlipLayer
 from bit_flipping import get_reference
 from bit_flipping import bit_flip_init
+from class_labels import vote
 
 #################################################################################################
 #       This file is Hunter's sandbox, see file run_pytorch.py for more readable code           #
@@ -29,15 +30,37 @@ transform = T.Compose([
 
 # image_net = datasets.ImageNet()   # TODO: Figure out how to use datasets?
 
+# out = torch.tensor([[[5, 2, 0], [2, 4, 3], [2, 1, 0], [0, 7, 3]],       # Model 1 - 4 images, 3 classes
+#                     [[4, 3, 0], [1, 0, 0], [1, 2, 3], [3, 8, 0]]])      # Model 2 -
+# # Correct: [0, 1, 2, 0]
+# # 1st model: T T F F    0, 1, 0, 1
+# # 2nd model: T F T F    0, 0, 2, 2
+# # Simple vo: T T F F
+# # Max. conf: T T T F
+# print(out.shape)
+# vote(out, 'simple')
 
-# Instantiate the model
-net = models.densenet161(pretrained=True)
-bit_flip_init(net)
-print(net, '\n*****')
+out = torch.tensor([[[5, 0, 0], [0, 5, 0], [0, 0, 5], [0, 0, 5]],      # Model 1 - 4 images, 3 classes
+                    [[5, 0, 0], [0, 0, 5], [0, 0, 5], [0, 5, 0]],      # Model 2 -
+                    [[5, 0, 0], [0, 0, 5], [5, 0, 0], [5, 0, 0]]])     # Model 3
+# Correct: [0, 2, 2, 2]
+# 1st model: 0, 1, 2, 2
+# 2nd model: 0, 2, 2, 1
+# 3rd model: 0, 2, 0, 0
+# Correct predictions should be [0, 2, 2, 2]
+print(out.shape)
+print(vote(out, 'simple'))
 
-layer = getattr(getattr(getattr(getattr(getattr(net, 'features'), 'denseblock2'), 'denselayer11'), 'conv2'), 'weight')
-print("success")
-print(layer.shape)
+
+
+# # Instantiate the model
+# net = models.densenet161(pretrained=True)
+# bit_flip_init(net)
+# print(net, '\n*****')
+#
+# layer = getattr(getattr(getattr(getattr(getattr(net, 'features'), 'denseblock2'), 'denselayer11'), 'conv2'), 'weight')
+# print("success")
+# print(layer.shape)
 
 
 # mobilenet = models.mobilenet_v3_small(pretrained=True)
