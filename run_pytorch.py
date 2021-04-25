@@ -45,8 +45,9 @@ voting_heuristic = 'simple'     # Determines the algorithm used to predict betwe
 
 # Instantiate the model(s)
 networks = []
-for m in MODELS:
+for i, m in enumerate(MODELS):
     net = get_model(m)
+    net.name = str(i) + '_' + net.__class__.__name__  # Give the net a unique name (used by bit_flipping.py)
     net.eval()  # Put in evaluation mode (already pretrained)
     net = flip_n_bits_in_weights(num_weights_permanently_stuck, net)  # Introduce stuck-ats
     net = add_activation_bit_flips(net, activation_success_odds)  # Add layers to flip activation bits
@@ -92,10 +93,14 @@ for batch_num in range(num_batches):
 #################################################################################################
 
 print("Percentage Correct: %.2f%%" % ((total_correct / (batch_size * num_batches)) * 100))
-print(num_weights_to_corrupt, "out of", (get_num_params(networks[0]) * 32),
-      " weight bits temporarily corrupted, or %.8f%%" % ((num_weights_to_corrupt / (get_num_params(networks[0]) * 32)) * 100))
-print(num_weights_permanently_stuck, "out of", (get_num_params(networks[0]) * 32),
-      " weight bits permanently corrupted, or %.8f%%" % (
-                  (num_weights_permanently_stuck / (get_num_params(networks[0]) * 32)) * 100))
-print(get_flips_in_activations(), "activation bits were flipped during operation, approx: %.8f%%"
-      % ((1 / (1 + activation_success_odds)) * 100))
+for i, net in enumerate(networks):
+    print(MODELS[i] + str(':'))
+    print("\t", num_weights_to_corrupt, "out of", (get_num_params(net) * 32),
+          " weight bits temporarily corrupted, or %.8f%%"
+          % ((num_weights_to_corrupt / (get_num_params(net) * 32)) * 100))
+    print("\t", num_weights_permanently_stuck, "out of", (get_num_params(net) * 32),
+          " weight bits permanently corrupted, or %.8f%%"
+          % ((num_weights_permanently_stuck / (get_num_params(net) * 32)) * 100))
+    print("\t", get_flips_in_activations(net),
+          "activation bits were flipped during operation, approx: %.8f%%"
+          % ((1 / (1 + activation_success_odds)) * 100))

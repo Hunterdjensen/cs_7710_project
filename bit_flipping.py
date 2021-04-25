@@ -10,11 +10,11 @@ import copy
 #################################################################################################
 
 # Global variables:
-init_flag = False
-total_param_count = 0           # Total number of parameters in the network
-cumulative_param_count = None   # List of the param counts per layer, to use w/ Numpy.digitize()
-names = None                    # List of layer "names" (i.e: 'features.12.block.2.fc1.weight')
-num_activation_flips = 0
+init_flags = {}
+total_param_count = {}           # Total number of parameters in the network
+cumulative_param_count = {}      # List of the param counts per layer, to use w/ Numpy.digitize()
+names = {}                      # List of layer "names" (i.e: 'features.12.block.2.fc1.weight')
+num_activation_flips = {}
 
 
 #################################################################################################
@@ -23,22 +23,23 @@ num_activation_flips = 0
 
 # Flips n bits randomly inside the model - main function to call from this file
 def flip_n_bits_in_weights(n, model, print_out=False):
-    global init_flag, total_param_count, cumulative_param_count, names
-    # if init_flag is False:
-    bit_flip_init(model)    # Always do init first, because we might have 2+ models running at once (temporary fix)
+    global init_flags, total_param_count, cumulative_param_count, names
+    model_name = model.name
+    if model_name not in init_flags or init_flags[model_name] is False:
+        bit_flip_init(model)    # Initialize the model if not yet seen
 
     model_corrupted = copy.deepcopy(model)      # Make a copy of the network to corrupt
 
     # Then pick n random numbers which will correspond to which parameters to corrupt
-    random_param_numbers = np.random.randint(low=0, high=total_param_count, size=(n,))
+    random_param_numbers = np.random.randint(low=0, high=total_param_count[model_name], size=(n,))
 
     # For each of those random parameters, get a reference to the layer the parameter belongs
     # to, grab its tensor, and then corrupt the parameter inside that tensor by flipping 1 bit
     for rand_param in random_param_numbers:
-        layer_num = np.digitize(rand_param, cumulative_param_count)     # Find corresponding bin (layer) to corrupt
+        layer_num = np.digitize(rand_param, cumulative_param_count[model_name])     # Find corresponding bin (layer) to corrupt
         if print_out is True:
-            print("Flipping a bit in parameter #%d in layer %d (%s)" % (rand_param, layer_num, names[layer_num]))
-        layer_tensor = get_layer_tensor(names[layer_num], model_corrupted)
+            print("Flipping a bit in parameter #%d in layer %d (%s)" % (rand_param, layer_num, names[model_name][layer_num]))
+        layer_tensor = get_layer_tensor(names[model_name][layer_num], model_corrupted)
         corrupt_weights(layer_tensor, k=rand_param, print_out=print_out)
     return model_corrupted
 
@@ -50,19 +51,20 @@ def flip_n_bits_in_weights(n, model, print_out=False):
 # or conversely 1:2000 chance the bit will be flipped.
 def add_activation_bit_flips(model, odds_of_no_flip):
     global init_flag, names
-    # if init_flag is False:
-    bit_flip_init(model)    # Always do init first, because we might have 2+ models running at once (temporary fix)
+    model_name = model.name
+    if model_name not in init_flags or init_flags[model_name] is False:
+        bit_flip_init(model)    # Initialize the model if not yet seen
 
     model_corrupted = copy.deepcopy(model)  # Make a copy of the network to corrupt
 
-    for name in names:
+    for name in names[model_name]:
         layer, prev, num = get_reference(name, model_corrupted)     # Get the reference to a layer
         if layer is not None:  # That means that this is a valid layer to add a BitFlipLayer behind (it's a layer with a weight)
             if num:  # The final attribute is a number, we can index with []
-                layer[int(prev)] = nn.Sequential(layer[int(prev)], BitFlipLayer(odds_of_no_flip))
+                layer[int(prev)] = nn.Sequential(layer[int(prev)], BitFlipLayer(odds_of_no_flip, model_name))
             else:  # The last attribute isn't an index, need to use set/get attr
                 # The following is messy but is essentially: layer = nn.Sequential(layer, BitFlipLayer())
-                setattr(layer, prev, nn.Sequential(getattr(layer, prev), BitFlipLayer(odds_of_no_flip)))
+                setattr(layer, prev, nn.Sequential(getattr(layer, prev), BitFlipLayer(odds_of_no_flip, model_name)))
 
     bit_flip_init(model_corrupted)  # IMPORTANT: Calls init again so that the global variable 'names' stays up-to-date
     return model_corrupted
@@ -70,24 +72,36 @@ def add_activation_bit_flips(model, odds_of_no_flip):
 
 # Return the total number of parameters (weights/biases) in the model
 def get_num_params(model, init=False):
-    global init_flag, total_param_count
-    if init_flag is False or init:
-        bit_flip_init(model)
+    global init_flags, total_param_count
+    model_name = model.name
+    if model_name not in init_flags or init_flags[model_name] is False or init:
+        bit_flip_init(model)    # Initialize the model if not yet seen
 
-    return total_param_count
+    return total_param_count[model_name]
 
 
 # Get the number of bit flips that have occurred in the activations (BitFlipLayer layers)
 # since the global variable was last reset
-def get_flips_in_activations():
-    global num_activation_flips
-    return num_activation_flips
+def get_flips_in_activations(model=None):
+    global num_activation_flips, init_flags
+    model_name = model.name
+    if model is None:
+        print("Note: get_flips_in_activations should be updated to pass in the model as well.")
+        return 0    # Just to catch bad calls
+    elif model_name in init_flags and init_flags[model_name] is True:   # Correct access
+        return num_activation_flips[model_name]
+    else:
+        exit("Error, model " + str(model_name) + " has not yet been initialized by bit_flipping.py")
 
 
 # Resets the global variable that's incremented in BitFlipLayer layers, which count activation bit flips
-def reset_flips_in_activations():
-    global num_activation_flips
-    num_activation_flips = 0
+def reset_flips_in_activations(model):
+    global num_activation_flips, init_flags
+    model_name = model.name
+    if model_name in init_flags and init_flags[model_name] is True:  # Correct access
+        num_activation_flips[model_name] = 0
+    else:
+        exit("Error, model " + str(model_name) + " has not yet been initialized by bit_flipping.py")
 
 
 #################################################################################################
@@ -96,10 +110,11 @@ def reset_flips_in_activations():
 
 # PyTorch Sequential layer that stochastically flips bits in the activations
 class BitFlipLayer(nn.Module):
-    def __init__(self, odds_of_no_bit_flip):
+    def __init__(self, odds_of_no_bit_flip, model_name):
         super(BitFlipLayer, self).__init__()
         odds = odds_of_no_bit_flip     # i.e. if this is 2000, then ~1 per 2000 bits will flip
         self.probability_of_flip = 1 / (1 + odds)   # Probability of a bit flip, per bit
+        self.model_name = model_name
 
     def forward(self, x):
         global num_activation_flips
@@ -111,7 +126,7 @@ class BitFlipLayer(nn.Module):
         indices_of_flips = np.where(activations_flipped == 1)[0]    # Creates a 1-D Numpy array of indices to corrupt
         for idx in list(indices_of_flips):
             corrupt_weights(x, idx, print_out=False)
-        num_activation_flips += indices_of_flips.shape[0]   # This global variable is to give us an idea of how many flips are occurring
+        num_activation_flips[self.model_name] += indices_of_flips.shape[0]   # This global variable is to give us an idea of how many flips are occurring
         return x
 
 
@@ -123,18 +138,24 @@ class BitFlipLayer(nn.Module):
 # Analyzes the model (i.e mobilenet) to get the number of parameters total and per layer
 # Doesn't need to be called by user, flip_n_bits() will call it
 def bit_flip_init(model):
-    global init_flag, total_param_count, cumulative_param_count, names, num_activation_flips
-    reset_flips_in_activations()    # Reset here just to be safe
-    init_flag = True
-    total_param_count = 0
-    cumulative_param_count = []
-    names = []
+    global init_flags, total_param_count, cumulative_param_count, names, num_activation_flips
+    model_name = model.name
+    init_flags[model_name] = True
+    reset_flips_in_activations(model)    # Reset here: after initialization, activations flips start at 0
+    total_param_count_ = 0
+    cumulative_param_count_ = []
+    names_ = []
 
     for name, param in model.named_parameters():
         num_elements = torch.numel(param)
-        total_param_count += num_elements
-        cumulative_param_count.append(total_param_count)
-        names.append(name)
+        total_param_count_ += num_elements
+        cumulative_param_count_.append(total_param_count_)
+        names_.append(name)
+
+    # Move local variables into global dictionary
+    names[model_name] = names_
+    cumulative_param_count[model_name] = cumulative_param_count_
+    total_param_count[model_name] = total_param_count_
 
 
 # Get the tensor corresponding to the layer given by the 'name' argument.
