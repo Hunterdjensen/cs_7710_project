@@ -1,6 +1,10 @@
 from run_pytorch import run
 from datetime import datetime
 
+from numba import jit, cuda
+import numpy as np
+
+
 output_dir = 'Results/'
 output_filename = 'ResNext_DenseNet_Inception_vs_Baseline.txt'
 outfile_path = output_dir + output_filename
@@ -40,23 +44,24 @@ write("For %d batches of size 8\n" % num_batches)
 #################################################################################################
 #                                         Run through:                                          #
 #################################################################################################
-
-for voting_heuristic in heuristics:
-    write(str(voting_heuristic) + " voting heuristic:")
-    for model in models:
-        write("\t" + str(model) + ":")
-        for bit_error_rate in BER_levels:
-            results = run(MODELS=model,
-                          PRINT_OUT=print_out,
-                          CORRUPT_IMG=corrupt_img,
-                          stuck_at_faults=stuck_at_faults,
-                          weights_BER=bit_error_rate,
-                          activation_BER=bit_error_rate,
-                          num_batches=num_batches,
-                          voting_heuristic=voting_heuristic,
-                          )
-            accuracy, weight_flips, activation_flips = results
-            write("\t\t" + str(bit_error_rate) + ": " + str(accuracy) + ", weight_flips: "
-                  + str(list(weight_flips.values())) + " act_flips: " + str(list(activation_flips.values())))
-            print(bit_error_rate, "acc:", accuracy, str(weight_flips))
-write("Completed successfully.")
+@numba.jit(target='cuda') 
+def funcGPU():
+    for voting_heuristic in heuristics:
+        write(str(voting_heuristic) + " voting heuristic:")
+        for model in models:
+            write("\t" + str(model) + ":")
+            for bit_error_rate in BER_levels:
+                results = run(MODELS=model,
+                              PRINT_OUT=print_out,
+                              CORRUPT_IMG=corrupt_img,
+                              stuck_at_faults=stuck_at_faults,
+                              weights_BER=bit_error_rate,
+                              activation_BER=bit_error_rate,
+                              num_batches=num_batches,
+                              voting_heuristic=voting_heuristic,
+                              )
+                accuracy, weight_flips, activation_flips = results
+                write("\t\t" + str(bit_error_rate) + ": " + str(accuracy) + ", weight_flips: "
+                      + str(list(weight_flips.values())) + " act_flips: " + str(list(activation_flips.values())))
+                print(bit_error_rate, "acc:", accuracy, str(weight_flips))
+    write("Completed successfully.")
