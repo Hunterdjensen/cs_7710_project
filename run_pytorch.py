@@ -39,7 +39,9 @@ def run(
     num_batches = 1,  # Number of loops performed, each with a new batch of images
     batch_size = 8,  # Number of images processed in a batch (in parallel)
     val_image_dir = 'val/',  # The directory where validation images are stored
-    voting_heuristic = 'sum all'  # Determines the algorithm used to predict between multiple models
+    voting_heuristic = 'sum all',  # Determines the algorithm used to predict between multiple models
+
+    cuda = torch.cuda.is_available()
 ):
     if MODELS is None:
         MODELS = ['resnext101_32x8d', 'densenet161', 'inception_v3']  # For an ensemble, put >1 network here
@@ -52,6 +54,8 @@ def run(
     networks = []
     for i, m in enumerate(MODELS):
         net = get_model(m)
+        if cuda:
+            net = net.cuda()
         net.name = str(i) + '_' + net.__class__.__name__  # Give the net a unique name (used by bit_flipping.py)
         net.eval()  # Put in evaluation mode (already pretrained)
         if stuck_at_faults != 0:
@@ -80,6 +84,8 @@ def run(
                 img = Image.fromarray(np.uint8(pic_np))  # Back to PIL
             img_t = toTensor(img)
             batch_t[i, :, :, :] = img_t
+            if cuda:
+                batch_t = batch_t.cuda()
 
         # Run each network and store output in 'out'
         out = torch.empty(

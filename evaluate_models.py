@@ -1,5 +1,6 @@
 from run_pytorch import run
 from datetime import datetime
+import torch
 
 output_dir = 'Results/'
 output_filename = 'ResNext_DenseNet_Inception_vs_Baseline.txt'
@@ -36,6 +37,8 @@ write("CORRUPT_IMG = " + str(corrupt_img))
 write("Bit Error Rate values: " + str(BER_levels))
 write("Voting Heuristics: " + str(heuristics))
 write("For %d batches of size 8\n" % num_batches)
+
+print("Cuda is available: ", torch.cuda.is_available())    # See if cuda is an option
 
 #################################################################################################
 #                                         Run through:                                          #
