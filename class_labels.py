@@ -77,4 +77,26 @@ def vote(out, heuristic):
             correct_model = torch.where(bottom_two, 1, 0)    # Aka where 2nd and 3rd agree, use 2nd, else use 1st model
             return predictions.gather(dim=0, index=correct_model.unsqueeze(0))    # Index predictions with correct_model
     # TODO: Add more voting mechanisms here
+    if heuristic == 'sum all':
+        M, N, C = out.shape     # M = num models, N = batch size, C = num classes
+        reduce = torch.sum(out, 0)
+        _, indices = torch.sort(reduce, descending=True)
+        predictions = indices[:,0]    # Shape [M, N] (could change the hardcoding)
+        return predictions
+    if heuristic == 'debug': ##playground heuristic
+        M, N, C = out.shape     # M = num models, N = batch size, C = num classes
+        print(out.shape)
+        reduce = torch.sum(out, 0)
+        print(reduce.shape)
+        _, indices = torch.sort(reduce, descending=True)
+        print('Reduced out: ', reduce)
+        print('indices of red: ', indices)
+
+        predictions = indices[:,0]    # Shape [M, N] (could change the hardcoding)
+        print('pred print: ', predictions)
+
+        return predictions
+        ##Ideas:
+        #Do all estimates that are > 0, sum them, take max
+        #
     # elif heuristic == '':
