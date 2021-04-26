@@ -8,7 +8,7 @@ import numpy as np
 
 output_dir = 'Results/'
 output_filename = 'ResNext_DenseNet_Inception_vs_Baseline.txt'
-# outfile_path = output_dir + output_filename
+outfile_path = output_dir + output_filename
 outfile = open(outfile_path, 'w+')
 #
 now = datetime.now()  # Get current time
@@ -46,7 +46,7 @@ write("Bit Error Rate values: " + str(BER_levels))
 write("Voting Heuristics: " + str(heuristics))
 write("For %d batches of size 8\n" % num_batches)
 
-write("Cuda is available: ", torch.cuda.is_available())    # See if cuda is an option
+write("Cuda is available: " + str(torch.cuda.is_available()))    # See if cuda is an option
 
 #################################################################################################
 #                                         Run through:                                          #
