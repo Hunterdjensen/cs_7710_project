@@ -18,12 +18,20 @@ num_activation_flips = {}   # Count of activation bitflips that have occurred fo
 num_weight_flips = {}       # Count of weight bitflips that have occurred for the model (not counting stuck-ats)
 
 
-# num_weight_flips_per_batch = {}  # Fixed number of weight flips for a model depending on its size and its Bit Error Rate
-
-
 #################################################################################################
 #                                 User-called functions:                                        #
 #################################################################################################
+
+# Resets the global variables (for when running multiple sims after each other)
+def reset_bit_flip_counters():
+    global init_flags, total_param_count, cumulative_param_count, names, num_activation_flips, num_weight_flips
+    init_flags = {}
+    total_param_count = {}
+    cumulative_param_count = {}
+    names = {}
+    num_activation_flips = {}
+    num_weight_flips = {}
+
 
 # Flips n bits randomly inside the model
 def flip_n_bits_in_weights(n, model, print_out=False):
@@ -153,6 +161,16 @@ def reset_flips_in_weights(model):
         num_weight_flips[model_name] = 0
     else:
         exit("Error, model " + str(model_name) + " has not yet been initialized by bit_flipping.py")
+
+
+def get_num_weight_flips():
+    global num_weight_flips
+    return num_weight_flips
+
+
+def get_num_activation_flips():
+    global num_activation_flips
+    return num_activation_flips
 
 
 #################################################################################################

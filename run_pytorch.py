@@ -9,7 +9,8 @@ from bit_flipping import flip_n_bits_in_weights, flip_stochastic_bits_in_weights
 from bit_flipping import add_activation_bit_flips
 from bit_flipping import get_num_params
 from bit_flipping import get_flips_in_activations, get_flips_in_weights
-from bit_flipping import reset_flips_in_activations
+from bit_flipping import get_num_activation_flips, get_num_weight_flips
+from bit_flipping import reset_bit_flip_counters
 from get_model import get_model
 from transformations import toSizeCenter, toTensor
 # Need to pip install pip install imagenet-c
@@ -21,7 +22,8 @@ def run(
     #################################################################################################
     #                                          Parameters:                                          #
     #################################################################################################
-    MODELS=None,
+    MODELS = None,
+    PRINT_OUT = True,    # Print out results at end
 
     # imagenet-c:
     CORRUPT_IMG = True,
@@ -41,6 +43,7 @@ def run(
 ):
     if MODELS is None:
         MODELS = ['resnext101_32x8d', 'densenet161', 'inception_v3']  # For an ensemble, put >1 network here
+    reset_bit_flip_counters()   # Do this at start in case calling run() multiple times
 
     #################################################################################################
     #                                           Runtime:                                            #
@@ -97,16 +100,20 @@ def run(
     #                                         Print Results:                                        #
     #################################################################################################
 
-    print("Percentage Correct: %.2f%%" % ((total_correct / (batch_size * num_batches)) * 100))
-    for i, net in enumerate(networks):
-        print(MODELS[i] + str(':'))
-        print("\t Total bit flips in weights:", get_flips_in_weights(net), "or %.0f per minute of inference"
-              % (get_flips_in_weights(net) / (num_batches / (32 * 60))))  # 32 batches/second (32 fps) * 60 seconds
-        print("\t Total bit flips in activations:", get_flips_in_activations(net), "or %.0f per minute of inference"
-              % (get_flips_in_activations(net) / (num_batches / (32 * 60))))  # 32 batches/second (32 fps) * 60 seconds
-        print("\t", stuck_at_faults, "out of", (get_num_params(net) * 32),
-              " weight bits permanently corrupted, or %.8f%%"
-              % ((stuck_at_faults / (get_num_params(net) * 32)) * 100))
+    percentage_correct = (total_correct / (batch_size * num_batches)) * 100
+    if PRINT_OUT:
+        print("Percentage Correct: %.2f%%" % percentage_correct)
+        for i, net in enumerate(networks):
+            print(MODELS[i] + str(':'))
+            print("\t Total bit flips in weights:", get_flips_in_weights(net), "or %.0f per minute of inference"
+                  % (get_flips_in_weights(net) / (num_batches / (32 * 60))))  # 32 batches/second (32 fps) * 60 seconds
+            print("\t Total bit flips in activations:", get_flips_in_activations(net), "or %.0f per minute of inference"
+                  % (get_flips_in_activations(net) / (num_batches / (32 * 60))))  # 32 batches/second (32 fps) * 60 seconds
+            print("\t", stuck_at_faults, "out of", (get_num_params(net) * 32),
+                  " weight bits permanently corrupted, or %.8f%%"
+                  % ((stuck_at_faults / (get_num_params(net) * 32)) * 100))
+
+    return [percentage_correct, get_num_weight_flips(), get_num_activation_flips()]
 
 
 def main():
