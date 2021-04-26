@@ -27,7 +27,7 @@ corrupt_img = False  # For this test we'll exclude it, in the future try a test 
 
 stuck_at_faults = 0  # Don't include for this test
 BER_levels = [1e-12, 1e-11, 1e-10, 1e-9, 1e-8, 1e-7]
-heuristics = ['simple', 'sum_all']
+heuristics = ['simple', 'sum all']
 
 num_batches = 128  # The more the better, but 128 batches should cover most of our 1000 validation images
 

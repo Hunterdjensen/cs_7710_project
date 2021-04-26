@@ -27,7 +27,7 @@ def run(
 
     # imagenet-c:
     CORRUPT_IMG = True,
-    COR_NUM = 8,    # 8 is frost covering image
+    COR_NUM = 3,    # 8 is frost covering image
     COR_SEVERITY = 1,
 
     # Bit-flipping corruptions:
@@ -89,8 +89,7 @@ def run(
                 net = flip_stochastic_bits_in_weights(weights_BER, net)
             out[i, :, :] = net(batch_t)
 
-        predictions = vote(out,
-                           voting_heuristic)  # Returns predictions, with shape [N] (one prediction per image in batch)
+        predictions = vote(out, voting_heuristic)  # Returns predictions, with shape [N] (one prediction per image)
         num_correct = torch.sum(predictions == gt_labels).item()  # Item() pulls the integer out of the tensor
 
         total_correct += num_correct
