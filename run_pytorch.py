@@ -36,7 +36,7 @@ activation_BER = 1e-10   # Bit Error Rate for activations, i.e. 1e-9 = ~(1 in 10
 num_batches = 4  # Number of loops performed, each with a new batch of images
 batch_size = 8  # Number of images processed in a batch (in parallel)
 val_image_dir = 'val/'  # The directory where validation images are stored
-voting_heuristic = 'simple'     # Determines the algorithm used to predict between multiple models
+voting_heuristic = 'sum all'     # Determines the algorithm used to predict between multiple models
 
 
 #################################################################################################
