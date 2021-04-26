@@ -15,7 +15,7 @@ from get_model import get_model
 from transformations import toSizeCenter, toTensor
 # Need to pip install pip install imagenet-c
 # https://github.com/hendrycks/robustness/tree/master/ImageNet-C/imagenet_c
-from imagenet_c import corrupt
+#from imagenet_c import corrupt
 
 
 def run(
@@ -26,7 +26,7 @@ def run(
     PRINT_OUT = True,    # Print out results at end
 
     # imagenet-c:
-    CORRUPT_IMG = True,
+    CORRUPT_IMG = False,
     COR_NUM = 3,    # 8 is frost covering image
     COR_SEVERITY = 1,
 
@@ -80,7 +80,7 @@ def run(
             img = toSizeCenter(img)
             if CORRUPT_IMG:
                 pic_np = np.array(img)  # numpy arr for corruption
-                pic_np = corrupt(pic_np, severity=COR_SEVERITY, corruption_number=COR_NUM)  # See Readme for Calls
+                #pic_np = corrupt(pic_np, severity=COR_SEVERITY, corruption_number=COR_NUM)  # See Readme for Calls
                 img = Image.fromarray(np.uint8(pic_np))  # Back to PIL
             img_t = toTensor(img)
             batch_t[i, :, :, :] = img_t
