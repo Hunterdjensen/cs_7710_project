@@ -16,6 +16,9 @@ from transformations import toSizeCenter, toTensor
 # Need to pip install pip install imagenet-c
 # https://github.com/hendrycks/robustness/tree/master/ImageNet-C/imagenet_c
 from imagenet_c import corrupt
+from cleverhans.torch.attacks.fast_gradient_method import fast_gradient_method
+from cleverhans.torch.attacks.projected_gradient_descent import projected_gradient_descent
+from cleverhans.torch.attacks.hop_skip_jump_attack import hop_skip_jump_attack
 
 
 def run(
@@ -26,18 +29,22 @@ def run(
     PRINT_OUT = True,    # Print out results at end
 
     # imagenet-c:
-    CORRUPT_IMG = True,
-    COR_NUM = 3,    # 8 is frost covering image
-    COR_SEVERITY = 1,
+    CORRUPT_IMG = False,
+    COR_NUM = 9,    # 7 is now, 8 is frost - but they both error out :/
+    COR_SEVERITY = 5,
+
+    # Adversarial Attacks:
+    adversarial_attack = True,
+    adversarial_type = 'hop_skip',
 
     # Bit-flipping corruptions:
-    stuck_at_faults = 2,  # This many bits will have "stuck-at faults" in the weights, permanently stuck at either 1 or 0
-    weights_BER = 1e-10,  # Bit Error Rate for weights (applied each batch, assuming weights are reloaded for each batch)
-    activation_BER = 1e-10,  # Bit Error Rate for activations, i.e. 1e-9 = ~(1 in 1000000000) errors in the activations
+    stuck_at_faults = 0,  # This many bits will have "stuck-at faults" in the weights, permanently stuck at either 1 or 0
+    weights_BER = 0,  # Bit Error Rate for weights (applied each batch, assuming weights are reloaded for each batch)
+    activation_BER = 0,  # Bit Error Rate for activations, i.e. 1e-9 = ~(1 in 1000000000) errors in the activations
 
     # Model parameters:
     num_batches = 1,  # Number of loops performed, each with a new batch of images
-    batch_size = 8,  # Number of images processed in a batch (in parallel)
+    batch_size = 4,  # Number of images processed in a batch (in parallel)
     val_image_dir = 'val/',  # The directory where validation images are stored
     voting_heuristic = 'sum all',  # Determines the algorithm used to predict between multiple models
 
@@ -83,9 +90,20 @@ def run(
                 pic_np = corrupt(pic_np, severity=COR_SEVERITY, corruption_number=COR_NUM)  # See Readme for Calls
                 img = Image.fromarray(np.uint8(pic_np))  # Back to PIL
             img_t = toTensor(img)
+            # img_t = fast_gradient_method(networks[0], img_t, eps=0.25, norm=np.inf, sanity_checks=True)
             batch_t[i, :, :, :] = img_t
-            if cuda:
-                batch_t = batch_t.cuda()
+        if cuda:
+            batch_t = batch_t.cuda()
+        if adversarial_attack:
+            if adversarial_type == 'fast':
+                batch_t = fast_gradient_method(networks[0], batch_t, eps=0.25, norm=np.inf, sanity_checks=True)   # ~25%
+            elif adversarial_type == 'projected':
+                batch_t = projected_gradient_descent(networks[0], batch_t, 0.25, 0.01, 40, np.inf)                  # 0.25, 0.01, 40: ~6.25
+            elif adversarial_type == 'hop_skip':
+                batch_t = hop_skip_jump_attack(networks[0], batch_t, np.inf, verbose=True)
+
+            else:
+                exit("Unrecognized adversarial attack type: " + str(adversarial_type))
 
         # Run each network and store output in 'out'
         out = torch.empty(

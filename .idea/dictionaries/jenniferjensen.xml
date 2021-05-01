@@ -1,12 +1,14 @@
 <component name="ProjectDictionaryState">
   <dictionary name="jenniferjensen">
     <words>
+      <w>densenet</w>
       <w>imagenet</w>
       <w>mobilenet</w>
       <w>modelname</w>
       <w>pytorch</w>
       <w>resizes</w>
       <w>resnet</w>
+      <w>resnext</w>
       <w>squeezenet</w>
       <w>stochastically</w>
       <w>unsqueeze</w>

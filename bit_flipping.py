@@ -114,8 +114,8 @@ def add_activation_bit_flips(model, bit_error_rate):
 # Return the total number of parameters (weights/biases) in the model
 def get_num_params(model, init=False):
     global init_flags, total_param_count
-    model_name = model.name
-    if model_name not in init_flags or init_flags[model_name] is False or init:
+    model_name = model.name if hasattr(model, 'name') else model.__class__.__name__
+    if init or model_name not in init_flags or init_flags[model_name] is False:
         bit_flip_init(model)  # Initialize the model if not yet seen
 
     return total_param_count[model_name]
@@ -125,7 +125,7 @@ def get_num_params(model, init=False):
 # since the global variable was last reset
 def get_flips_in_activations(model):
     global num_activation_flips, init_flags
-    model_name = model.name
+    model_name = model.name if hasattr(model, 'name') else model.__class__.__name__
     if model_name not in init_flags or init_flags[model_name] is False:
         bit_flip_init(model)  # Initialize the model if not yet seen
 
@@ -135,7 +135,7 @@ def get_flips_in_activations(model):
 # Resets the global variable that's incremented in BitFlipLayer layers, which count activation bit flips
 def reset_flips_in_activations(model):
     global num_activation_flips, init_flags
-    model_name = model.name
+    model_name = model.name if hasattr(model, 'name') else model.__class__.__name__
     if model_name in init_flags and init_flags[model_name] is True:  # Correct access
         num_activation_flips[model_name] = 0
     else:
@@ -146,7 +146,7 @@ def reset_flips_in_activations(model):
 # since the global variable was last reset
 def get_flips_in_weights(model):
     global num_weight_flips, init_flags
-    model_name = model.name
+    model_name = model.name if hasattr(model, 'name') else model.__class__.__name__
     if model_name not in init_flags or init_flags[model_name] is False:
         bit_flip_init(model)  # Initialize the model if not yet seen
 
@@ -156,7 +156,7 @@ def get_flips_in_weights(model):
 # Resets the global variable that's incremented in BitFlipLayer layers, which count activation bit flips
 def reset_flips_in_weights(model):
     global num_weight_flips, init_flags
-    model_name = model.name
+    model_name = model.name if hasattr(model, 'name') else model.__class__.__name__
     if model_name in init_flags and init_flags[model_name] is True:  # Correct access
         num_weight_flips[model_name] = 0
     else:
@@ -208,7 +208,10 @@ class BitFlipLayer(nn.Module):
 # Doesn't need to be called by user, flip_n_bits() will call it
 def bit_flip_init(model):
     global init_flags, total_param_count, cumulative_param_count, names, num_activation_flips
-    model_name = model.name
+    if hasattr(model, 'name'):
+        model_name = model.name
+    else:
+        model_name = model.__class__.__name__
     init_flags[model_name] = True
     reset_flips_in_activations(model)   # Reset here: after initialization, activations flips start at 0
     reset_flips_in_weights(model)       # Also reset the weight bit flips
