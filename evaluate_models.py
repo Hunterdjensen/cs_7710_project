@@ -10,15 +10,11 @@ output_dir = 'Results/'
 output_filename = 'ResNext_DenseNet_Inception_vs_Baseline.txt'
 outfile_path = output_dir + output_filename
 outfile = open(outfile_path, 'w+')
-#
 now = datetime.now()  # Get current time
-#
-# with open(outfile_path, 'w') as f:
-#     print("Running simulation at time: " now.strftime("%m/%d/%Y %H:%M:%S") + "\n", file=outfile)
-print("Running simulation at time: " ,now.strftime("%m/%d/%Y %H:%M:%S") ,"\n", file=outfile)
+print("Running simulation at time: ", now.strftime("%m/%d/%Y %H:%M:%S"), "\n", file=outfile)
 outfile.close()
-#
-#
+
+
 def write(string):
     f = open(outfile_path, 'a')
     print(string, file=f)
@@ -68,5 +64,5 @@ for voting_heuristic in heuristics:
             accuracy, weight_flips, activation_flips = results
             write("\t\t" + str(bit_error_rate) + ": " + str(accuracy) + ", weight_flips: "
                   + str(list(weight_flips.values())) + " act_flips: " + str(list(activation_flips.values())))
-            write(bit_error_rate, "acc:", accuracy, str(weight_flips))
+            print(bit_error_rate, "acc:", accuracy, str(weight_flips))
 write("Completed successfully.")
