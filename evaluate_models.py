@@ -2,15 +2,23 @@ from run_pytorch import run
 from datetime import datetime
 import torch
 
+from numba import jit, cuda
+import numpy as np
+
+
 output_dir = 'Results/'
 output_filename = 'ResNext_DenseNet_Inception_vs_Baseline.txt'
 outfile_path = output_dir + output_filename
 outfile = open(outfile_path, 'w+')
+#
 now = datetime.now()  # Get current time
-print("Running simulation at time: ", now.strftime("%m/%d/%Y %H:%M:%S"), "\n", file=outfile)
+#
+# with open(outfile_path, 'w') as f:
+#     print("Running simulation at time: " now.strftime("%m/%d/%Y %H:%M:%S") + "\n", file=outfile)
+print("Running simulation at time: " ,now.strftime("%m/%d/%Y %H:%M:%S") ,"\n", file=outfile)
 outfile.close()
-
-
+#
+#
 def write(string):
     f = open(outfile_path, 'a')
     print(string, file=f)
@@ -38,12 +46,11 @@ write("Bit Error Rate values: " + str(BER_levels))
 write("Voting Heuristics: " + str(heuristics))
 write("For %d batches of size 8\n" % num_batches)
 
-print("Cuda is available: ", torch.cuda.is_available())    # See if cuda is an option
+write("Cuda is available: " + str(torch.cuda.is_available()))    # See if cuda is an option
 
 #################################################################################################
 #                                         Run through:                                          #
 #################################################################################################
-
 for voting_heuristic in heuristics:
     write(str(voting_heuristic) + " voting heuristic:")
     for model in models:
@@ -61,5 +68,5 @@ for voting_heuristic in heuristics:
             accuracy, weight_flips, activation_flips = results
             write("\t\t" + str(bit_error_rate) + ": " + str(accuracy) + ", weight_flips: "
                   + str(list(weight_flips.values())) + " act_flips: " + str(list(activation_flips.values())))
-            print(bit_error_rate, "acc:", accuracy, str(weight_flips))
+            write(bit_error_rate, "acc:", accuracy, str(weight_flips))
 write("Completed successfully.")
