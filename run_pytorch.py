@@ -15,7 +15,8 @@ from get_model import get_model
 from transformations import toSizeCenter, toTensor
 # Need to pip install pip install imagenet-c
 # https://github.com/hendrycks/robustness/tree/master/ImageNet-C/imagenet_c
-from imagenet_c import corrupt
+# from imagenet_c import corrupt
+from imagecorruptions import corrupt
 from cleverhans.torch.attacks.fast_gradient_method import fast_gradient_method
 from cleverhans.torch.attacks.projected_gradient_descent import projected_gradient_descent
 from cleverhans.torch.attacks.hop_skip_jump_attack import hop_skip_jump_attack
@@ -30,12 +31,12 @@ def run(
 
     # imagenet-c:
     CORRUPT_IMG = False,
-    COR_NUM = 9,    # 7 is now, 8 is frost - but they both error out :/
+    COR_NUM = 7,    # 7 is now, 8 is frost - but they both error out :/
     COR_SEVERITY = 5,
 
     # Adversarial Attacks:
-    adversarial_attack = True,
-    adversarial_type = 'hop_skip',
+    adversarial_attack = False,
+    adversarial_type = 'hop_skip',  # 'fast' or 'projected' recommended
 
     # Bit-flipping corruptions:
     stuck_at_faults = 0,  # This many bits will have "stuck-at faults" in the weights, permanently stuck at either 1 or 0

@@ -199,10 +199,9 @@ from get_model import get_model
 
 
 adversarial_attack = ['ImageNet-A', 'Fast Gradient', 'Projected Gradient']
-# Fog
 baseline_acc = [10.04, 23.682, 7.129]
 ensemble_acc = [8.54, 40.723, 44.495]
-# ensemble_acc_soft = [6.04, ]
+ensemble_acc_soft = [6.04, 45.142, 7.153]
 x_pos = range(len(adversarial_attack))
 
 ax = plt.subplot(1,1,1)
