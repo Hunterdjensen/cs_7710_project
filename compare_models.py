@@ -174,30 +174,44 @@ from get_model import get_model
 
 
 
-
-
 # distortion_severity = [0, 1, 2, 3, 4, 5]
-# # Fog
+# # Fog:
 # # baseline_acc = [80.493, 80.029, 80.371, 81.006, 80.237, 80.444]
 # # ensemble_acc = [80.151, 80.579, 80.481, 79.663, 80.017, 81.043]
 # # Defocus blur:
-# baseline_acc = [80.164, 79.553, 80.42, 79.517, 80.322, 79.663]
-# ensemble_acc = [80.408, 80.09, 79.93, 79.858, 80.090, 79.26]
+# # baseline_acc = [80.164, 79.553, 80.42, 79.517, 80.322, 79.663]
+# # ensemble_acc = [80.408, 80.09, 79.93, 79.858, 80.090, 79.26]
+# # Frost: (8)
+# frost_baseline_acc = [80.200, 68.140, 52.612, 40.723, 39.429, 33.887]
+# frost_ensemble_acc = [80.200, 70.435, 57.129, 45.557, 43.555, 34.888]
+# # Snow: (7)
+# snow_baseline_acc = [80.200, 54.185, 42.163, 48.047, 35.913, 24.854]
+# snow_ensemble_acc = [80.200, 65.161, 45.557, 50.464, 38.721, 29.663]
+#
+# baseline_acc = frost_baseline_acc + [0] + snow_baseline_acc
+# ensemble_acc = frost_ensemble_acc + [0] + snow_ensemble_acc
+# distortion_severity = distortion_severity + [''] + distortion_severity
+# print(distortion_severity)
 # x_pos = range(len(distortion_severity))
 #
+# fig = plt.figure(figsize=(7.2, 5))
 # ax = plt.subplot(1,1,1)
 # w = 0.4
 # ax.bar([x-w/2 for x in x_pos], baseline_acc, width=w, color='#1c4b99', align='center', label='baseline')
 # ax.bar([x+w/2 for x in x_pos], ensemble_acc, width=w, color='#c80815', align='center', label='ensemble')
-# ax.legend(loc="lower right")
+# ax.legend(loc="upper right")
 # plt.xticks(x_pos, distortion_severity)
 # plt.ylabel("Accuracy")
-# plt.xlabel("Distortion Severity")
-# plt.title("Baseline vs 3-Model Ensemble on Distorted Image (defocus blur)")
+# plt.xlabel("Distortion Severity (Frost)                               Distortion Severity (Snow)")
+# plt.title("Baseline vs 3-Model Ensemble on Distorted Images")
 # plt.tight_layout(pad=2.0)
 # plt.show()
 
 
+
+
+
+# Adversarial attacks:
 adversarial_attack = ['ImageNet-A', 'Fast Gradient', 'Projected Gradient']
 baseline_acc = [10.04, 23.682, 7.129]
 ensemble_acc = [8.54, 40.723, 44.495]
@@ -205,15 +219,13 @@ ensemble_acc_soft = [6.04, 45.142, 7.153]
 x_pos = range(len(adversarial_attack))
 
 ax = plt.subplot(1,1,1)
-w = 0.4
-ax.bar([x-w/2 for x in x_pos], baseline_acc, width=w, color='#1c4b99', align='center', label='baseline')
-ax.bar([x+w/2 for x in x_pos], ensemble_acc, width=w, color='#c80815', align='center', label='ensemble')
+w = 0.2
+ax.bar([x-w for x in x_pos], baseline_acc, width=w, color='#1c4b99', align='center', label='baseline')
+ax.bar([x for x in x_pos], ensemble_acc, width=w, color='#c80815', align='center', label='ensemble (hard voting)')
+ax.bar([x+w for x in x_pos], ensemble_acc_soft, width=w, color='silver', align='center', label='ensemble (soft voting)')
 ax.legend(loc="upper left")
 plt.xticks(x_pos, adversarial_attack)
 plt.ylabel("Accuracy")
-plt.xlabel("Distortion Severity")
-plt.title("Adversarial Attacks on Baseline and Ensemble")
+plt.title("Adversarial Attacks on Baseline and 3-Model Ensemble")
 plt.tight_layout(pad=2.0)
 plt.show()
-
-
